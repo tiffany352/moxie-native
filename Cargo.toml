@@ -6,12 +6,10 @@ edition = "2018"
 
 [dependencies]
 winit = "0.20.0-alpha4"
-gleam = "0.8.0"
+gleam = "0.6.2"
+mozangle = {version = "0.3.1", features = ["egl"]}
+winapi = {version = "0.3", features = ["winerror", "d3d11", "dcomp"]}
 
 [dependencies.webrender]
-git = "https://github.com/servo/webrender.git"
-rev = "11954418bcced3d611806541718ba951bad98765"
-
-[dependencies.direct-composition]
 git = "https://github.com/servo/webrender.git"
 rev = "11954418bcced3d611806541718ba951bad98765"

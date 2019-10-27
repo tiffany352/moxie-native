@@ -1,4 +1,5 @@
 pub mod app;
+pub mod direct_composition;
 pub use app::App;
 
 use direct_composition::{AngleVisual, DirectComposition};
@@ -44,7 +45,7 @@ impl RenderNotifier for Notifier {
 struct Window {
     winit_window: WinitWindow,
     composition: DirectComposition,
-    visual: AngleVisual,
+    visual: Option<AngleVisual>,
     api: RenderApi,
     document: DocumentId,
     rx: mpsc::Receiver<()>,
@@ -93,7 +94,7 @@ impl Window {
         let mut window = Window {
             winit_window,
             composition,
-            visual,
+            visual: Some(visual),
             api,
             document,
             rx,
@@ -111,7 +112,7 @@ impl Window {
         let factor = self.winit_window.hidpi_factor() as f32;
         let size =
             Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
-        self.visual.make_current();
+        self.visual.as_mut().unwrap().make_current();
         let pipeline_id = PipelineId(0, 0);
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
@@ -150,7 +151,7 @@ impl Window {
         self.renderer.update();
         let _ = self.renderer.render(size);
         let _ = self.renderer.flush_pipeline_info();
-        self.visual.present();
+        self.visual.as_mut().unwrap().present();
         self.composition.commit();
     }
 
@@ -162,9 +163,19 @@ impl Window {
                 self.render(inner_size);
             }
             WindowEvent::Resized(size) => {
-                let factor = self.winit_window.hidpi_factor() as f32;
-                let inner_size = size.to_physical(factor as f64);
-                self.render(inner_size);
+                println!("resize {}x{}", size.width, size.height);
+                if let Some(visual) = self.visual.take() {
+                    self.composition.cleanup_angle_visual(visual);
+                }
+                if size.width > 0.0 && size.height > 0.0 {
+                    let factor = self.winit_window.hidpi_factor() as f32;
+                    let inner_size = size.to_physical(factor as f64);
+                    self.visual = Some(
+                        self.composition
+                            .create_angle_visual(inner_size.width as u32, inner_size.height as u32),
+                    );
+                    self.render(inner_size);
+                }
             }
             _ => (),
         }
