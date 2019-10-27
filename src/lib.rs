@@ -1,22 +1,23 @@
 pub mod app;
 pub use app::App;
 
-use direct_composition::DirectComposition;
+use direct_composition::{AngleVisual, DirectComposition};
 use std::sync::mpsc;
 use webrender::{
     api::{
-        units::DevicePixel, BorderRadius, ClipMode, ColorF, CommonItemProperties,
-        ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch, PipelineId, RenderNotifier,
-        SpaceAndClipInfo, SpatialId, Transaction,
+        units::DeviceIntRect, units::DevicePixel, BorderRadius, ClipMode, ColorF,
+        CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch, PipelineId,
+        RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
     euclid::{Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
 };
 use winit::{
+    dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
     platform::windows::{WindowBuilderExtWindows, WindowExtWindows},
-    window::WindowBuilder,
+    window::{Window as WinitWindow, WindowBuilder},
 };
 
 #[derive(Clone)]
@@ -40,50 +41,77 @@ impl RenderNotifier for Notifier {
     }
 }
 
-pub fn start<T>(app: T)
-where
-    T: App,
-{
-    let event_loop = EventLoop::new();
-    let (tx, rx) = mpsc::channel();
-    let notifier = Box::new(Notifier {
-        events_proxy: event_loop.create_proxy(),
-        tx,
-    });
-    let window = WindowBuilder::new()
-        .with_title("UI Lib")
-        .with_decorations(true)
-        .with_transparent(true)
-        //.with_no_redirection_bitmap(true)
-        .build(&event_loop)
-        .unwrap();
-    let hwnd = window.hwnd();
-    println!("hwnd {:?}", hwnd);
-    let composition = unsafe { DirectComposition::new(hwnd as _) };
-    let factor = window.hidpi_factor() as f32;
-    let inner_size = window.inner_size().to_physical(factor as f64);
-    let size = Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
-    println!("size {} factor {}", size, factor);
-    let visual = composition.create_angle_visual(size.width as u32, size.height as u32);
-    visual.make_current();
-    let (mut renderer, sender) = Renderer::new(
-        composition.gleam.clone(),
-        notifier.clone(),
-        RendererOptions {
-            clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
-            device_pixel_ratio: factor,
-            ..Default::default()
-        },
-        None,
-        size,
-    )
-    .unwrap();
-    let api = sender.create_api();
-    let document = api.add_document(size, 0);
+struct Window {
+    winit_window: WinitWindow,
+    composition: DirectComposition,
+    visual: AngleVisual,
+    api: RenderApi,
+    document: DocumentId,
+    rx: mpsc::Receiver<()>,
+    renderer: Renderer,
+}
 
-    let mut render = move || {
-        println!("render()");
+impl Window {
+    fn new(event_loop: &EventLoop<()>) -> Window {
+        let (tx, rx) = mpsc::channel();
+        let notifier = Box::new(Notifier {
+            events_proxy: event_loop.create_proxy(),
+            tx,
+        });
+
+        let winit_window = WindowBuilder::new()
+            .with_title("UI Lib")
+            .with_decorations(true)
+            .with_transparent(true)
+            .with_no_redirection_bitmap(true)
+            .build(event_loop)
+            .unwrap();
+
+        let factor = winit_window.hidpi_factor() as f32;
+        let inner_size = winit_window.inner_size().to_physical(factor as f64);
+        let size =
+            Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
+
+        let composition = unsafe { DirectComposition::new(winit_window.hwnd() as _) };
+        let visual = composition.create_angle_visual(size.width as u32, size.height as u32);
         visual.make_current();
+        let (renderer, sender) = Renderer::new(
+            composition.gleam.clone(),
+            notifier.clone(),
+            RendererOptions {
+                clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
+                device_pixel_ratio: factor,
+                ..Default::default()
+            },
+            None,
+            size,
+        )
+        .unwrap();
+        let api = sender.create_api();
+        let document = api.add_document(size, 0);
+
+        let mut window = Window {
+            winit_window,
+            composition,
+            visual,
+            api,
+            document,
+            rx,
+            renderer,
+        };
+
+        let factor = window.winit_window.hidpi_factor() as f32;
+        let inner_size = window.winit_window.inner_size().to_physical(factor as f64);
+        window.render(inner_size);
+        window
+    }
+
+    fn render(&mut self, inner_size: PhysicalSize) {
+        println!("render()");
+        let factor = self.winit_window.hidpi_factor() as f32;
+        let size =
+            Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
+        self.visual.make_current();
         let pipeline_id = PipelineId(0, 0);
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
@@ -112,64 +140,46 @@ where
         transaction.set_display_list(Epoch(0), None, layout_size, builder.finalize(), true);
         transaction.set_root_pipeline(pipeline_id);
         transaction.generate_frame();
-        api.send_transaction(document, transaction);
-        rx.recv().unwrap();
-        renderer.update();
-        let _ = renderer.render(size);
-        let _ = renderer.flush_pipeline_info();
-        visual.present();
-    };
+        self.api.set_document_view(
+            self.document,
+            DeviceIntRect::new(Point2D::zero(), size),
+            factor,
+        );
+        self.api.send_transaction(self.document, transaction);
+        self.rx.recv().unwrap();
+        self.renderer.update();
+        let _ = self.renderer.render(size);
+        let _ = self.renderer.flush_pipeline_info();
+        self.visual.present();
+        self.composition.commit();
+    }
 
-    render();
-
-    composition.commit();
-
-    event_loop.run(move |event, _, control_flow| {
+    fn process(&mut self, event: WindowEvent) {
         match event {
-            Event::EventsCleared => {
-                // Application update code.
-
-                // Queue a RedrawRequested event.
-                //window.request_redraw();
+            WindowEvent::RedrawRequested => {
+                let factor = self.winit_window.hidpi_factor() as f32;
+                let inner_size = self.winit_window.inner_size().to_physical(factor as f64);
+                self.render(inner_size);
             }
-            Event::UserEvent(_) => {
-                println!("event: {:?}", event);
-                composition.commit();
+            WindowEvent::Resized(size) => {
+                let factor = self.winit_window.hidpi_factor() as f32;
+                let inner_size = size.to_physical(factor as f64);
+                self.render(inner_size);
             }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseInput {
-                        button: winit::event::MouseButton::Left,
-                        ..
-                    },
-                ..
-            } => {
-                println!("event: {:?}", event);
-                render();
-                composition.commit();
-            }
-            Event::WindowEvent {
-                event: WindowEvent::RedrawRequested,
-                ..
-            } => {
-                // Redraw the application.
-                //
-                // It's preferrable to render in this event rather than in EventsCleared, since
-                // rendering in here allows the program to gracefully handle redraws requested
-                // by the OS.
-                println!("event: {:?}", event);
-                render();
-                composition.commit();
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                println!("event: {:?}", event);
-                println!("The close button was pressed; stopping");
-                *control_flow = ControlFlow::Exit
-            }
-            _ => *control_flow = ControlFlow::Wait,
+            _ => (),
         }
+    }
+}
+
+pub fn start<T>(app: T)
+where
+    T: App,
+{
+    let event_loop = EventLoop::new();
+    let mut window = Window::new(&event_loop);
+
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::WindowEvent { event, .. } => window.process(event),
+        _ => *control_flow = ControlFlow::Wait,
     });
 }
