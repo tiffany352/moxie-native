@@ -54,17 +54,15 @@ where
         .with_title("UI Lib")
         .with_decorations(true)
         .with_transparent(true)
-        .with_no_redirection_bitmap(true)
+        //.with_no_redirection_bitmap(true)
         .build(&event_loop)
         .unwrap();
     let hwnd = window.hwnd();
     println!("hwnd {:?}", hwnd);
     let composition = unsafe { DirectComposition::new(hwnd as _) };
     let factor = window.hidpi_factor() as f32;
-    let size = Size2D::<i32, DevicePixel>::new(
-        window.inner_size().width as i32,
-        window.inner_size().height as i32,
-    );
+    let inner_size = window.inner_size().to_physical(factor as f64);
+    let size = Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
     println!("size {} factor {}", size, factor);
     let visual = composition.create_angle_visual(size.width as u32, size.height as u32);
     visual.make_current();
@@ -72,7 +70,7 @@ where
         composition.gleam.clone(),
         notifier.clone(),
         RendererOptions {
-            clear_color: Some(ColorF::new(0.2, 0.7, 0.8, 1.0)),
+            clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
             device_pixel_ratio: factor,
             ..Default::default()
         },
@@ -89,7 +87,10 @@ where
         let pipeline_id = PipelineId(0, 0);
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
-        let rect = Rect::new(Point2D::zero(), layout_size);
+        let rect = Rect::new(
+            Point2D::new(20.0, 20.0),
+            layout_size - Size2D::new(40.0, 40.0),
+        );
         let region = ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
         let clip = builder.define_clip(
             &SpaceAndClipInfo::root_scroll(pipeline_id),
@@ -108,13 +109,7 @@ where
             ColorF::new(0.2, 0.7, 0.8, 1.0),
         );
         let mut transaction = Transaction::new();
-        transaction.set_display_list(
-            Epoch(0),
-            Some(ColorF::new(0.2, 0.7, 0.8, 1.0)),
-            layout_size,
-            builder.finalize(),
-            true,
-        );
+        transaction.set_display_list(Epoch(0), None, layout_size, builder.finalize(), true);
         transaction.set_root_pipeline(pipeline_id);
         transaction.generate_frame();
         api.send_transaction(document, transaction);
