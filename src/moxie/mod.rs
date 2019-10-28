@@ -5,7 +5,6 @@ use super::Node;
 use {moxie, std::cell::Cell};
 
 pub mod elements;
-pub mod embed;
 
 /// Create and mount a [DOM text node](https://developer.mozilla.org/en-US/docs/Web/API/Text).
 /// This is normally called by the [`moxie::mox!`] macro.
