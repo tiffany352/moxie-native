@@ -1,3 +1,1 @@
-pub trait App {
-
-}
+pub trait App {}
