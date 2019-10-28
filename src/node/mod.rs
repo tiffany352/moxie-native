@@ -1,6 +1,7 @@
 mod attributes;
 
 use std::cell::RefCell;
+use std::fmt;
 use std::ptr;
 use std::rc::{Rc, Weak};
 
@@ -20,6 +21,17 @@ impl Element {
             "view" => Element::View,
             "window" => Element::Window,
             _ => Element::Unknown(name.to_owned()),
+        }
+    }
+}
+
+impl fmt::Display for Element {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Element::Root => write!(fmt, "root"),
+            Element::Window => write!(fmt, "window"),
+            Element::View => write!(fmt, "view"),
+            Element::Unknown(name) => write!(fmt, "{}", name),
         }
     }
 }
@@ -58,11 +70,49 @@ impl NodeData {
     }
 }
 
+impl fmt::Debug for NodeData {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NodeData::Element(element) => {
+                let attributes = element.attributes.borrow();
+                if attributes.len() > 0 {
+                    write!(fmt, "<{}", element.element)?;
+                    for attribute in attributes.iter() {
+                        write!(
+                            fmt,
+                            "  {}=\"{}\"",
+                            attribute.get_key(),
+                            attribute.get_value()
+                        )?;
+                    }
+                    writeln!(fmt, ">")?;
+                } else {
+                    writeln!(fmt, "<{}>", element.element)?;
+                }
+                let children = element.children.borrow();
+                for child in children.iter() {
+                    for line in format!("{:#?}", child).lines() {
+                        writeln!(fmt, "  {}", line)?;
+                    }
+                }
+                write!(fmt, "</{}>", element.element)
+            }
+            NodeData::Text(text) => write!(fmt, "\"{}\"", text.text),
+        }
+    }
+}
+
 type NodePtr = Rc<NodeData>;
 
 #[derive(Clone)]
 pub struct Node {
     ptr: NodePtr,
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.ptr.fmt(fmt)
+    }
 }
 
 impl PartialEq for Node {
@@ -87,7 +137,6 @@ impl Node {
     }
 
     pub fn create_element(&self, ty: &str) -> Node {
-        println!("create_element {}", ty);
         let child = Node {
             ptr: Rc::new(NodeData::Element(ElementData {
                 parent: RefCell::new(Some(Rc::downgrade(&self.ptr))),

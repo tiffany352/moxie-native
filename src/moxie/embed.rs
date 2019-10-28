@@ -8,16 +8,16 @@ use {
 
 /// Wrapper around `moxie::embed::Runtime` which provides an `Env` for building trees of DOM nodes.
 #[must_use]
-pub struct UIRuntime(Runtime<Box<dyn FnMut()>, ()>);
+pub struct MoxieRuntime(Runtime<Box<dyn FnMut()>, ()>);
 
-impl UIRuntime {
-    /// Construct a new `UIRuntime` which will maintain the children of the provided `parent`.
+impl MoxieRuntime {
+    /// Construct a new `MoxieRuntime` which will maintain the children of the provided `parent`.
     ///
-    /// On its own, a `UIRuntime` is inert and must either have its `run_once` method called when
-    /// a re-render is needed, or be scheduled with [`UIRuntime::animation_frame_scheduler`].
+    /// On its own, a `MoxieRuntime` is inert and must either have its `run_once` method called when
+    /// a re-render is needed, or be scheduled with [`MoxieRuntime::animation_frame_scheduler`].
     pub fn new(mut root: impl FnMut() + 'static) -> Self {
         let parent = Node::create_root();
-        UIRuntime(Runtime::new(Box::new(move || {
+        MoxieRuntime(Runtime::new(Box::new(move || {
             topo::call!(
                 { root() },
                 env! {

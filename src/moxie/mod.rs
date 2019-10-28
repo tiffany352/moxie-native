@@ -51,7 +51,7 @@ pub struct MemoElement {
 }
 
 impl MemoElement {
-    fn new(node: Node) -> Self {
+    pub fn new(node: Node) -> Self {
         Self {
             curr: Cell::new(None),
             node,
