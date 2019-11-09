@@ -76,6 +76,10 @@ impl DomStorage {
         &self.nodes.get(node).unwrap().element
     }
 
+    pub fn get_element_mut(&mut self, node: Node) -> &mut Element {
+        &mut self.nodes.get_mut(node).unwrap().element
+    }
+
     pub fn pretty_print_xml(&self, node: Node) -> String {
         use std::fmt::Write;
         let data = self.nodes.get(node).unwrap();

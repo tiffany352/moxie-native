@@ -1,6 +1,6 @@
 use crate::direct_composition::{AngleVisual, DirectComposition};
 use crate::dom::{DomStorage, Element, Node, NodeOrText};
-use crate::layout::LogicalPixel;
+use crate::layout::{LogicalPixel, LogicalSize};
 use std::sync::mpsc;
 use webrender::{
     api::{
@@ -110,6 +110,46 @@ impl Window {
         self.winit_window.id()
     }
 
+    fn layout_child(
+        &mut self,
+        storage: &mut DomStorage,
+        node: Node,
+        parent_max_size: LogicalSize,
+    ) -> Option<LogicalSize> {
+        let max_size = {
+            let element = storage.get_element_mut(node);
+            if let Element::View(view) = element {
+                let opts = view.create_layout_opts();
+                let max_size = view.layout_mut().calc_max_size(&opts, parent_max_size);
+                max_size
+            } else {
+                return None;
+            }
+        };
+
+        let children: Vec<NodeOrText> = storage.get_children(node).to_vec();
+        let mut child_sizes = vec![];
+        child_sizes.reserve(children.len());
+        for child in children {
+            if let NodeOrText::Node(node) = child {
+                if let Some(size) = self.layout_child(storage, node, max_size) {
+                    child_sizes.push(size);
+                }
+            }
+        }
+
+        {
+            let element = storage.get_element_mut(node);
+            if let Element::View(view) = element {
+                let opts = view.create_layout_opts();
+                let min_size = view.layout_mut().calc_min_size(&opts, &child_sizes[..]);
+                Some(min_size)
+            } else {
+                return None;
+            }
+        }
+    }
+
     fn render_child(
         &mut self,
         storage: &mut DomStorage,
@@ -121,12 +161,21 @@ impl Window {
         let element = storage.get_element(node);
         match element {
             Element::View(view) => {
-                view.draw(position, Scale::new(1.0), builder, pipeline_id, &[]);
+                view.draw(position, Scale::new(1.0), builder, pipeline_id);
 
                 let children: Vec<NodeOrText> = storage.get_children(node).to_vec();
+                let child_positions = view.layout().child_positions().to_vec();
+                let mut i = 0;
                 for child in children {
                     if let NodeOrText::Node(node) = child {
-                        self.render_child(storage, pipeline_id, builder, position, node);
+                        self.render_child(
+                            storage,
+                            pipeline_id,
+                            builder,
+                            position + child_positions[i].to_vector(),
+                            node,
+                        );
+                        i += 1;
                     }
                 }
             }
@@ -147,6 +196,8 @@ impl Window {
         let children: Vec<NodeOrText> = storage.get_children(self.dom_window).to_vec();
         for child in children {
             if let NodeOrText::Node(node) = child {
+                self.layout_child(storage, node, layout_size * Scale::new(1.0));
+
                 self.render_child(
                     storage,
                     pipeline_id,

@@ -7,8 +7,9 @@ use ui_lib::moxie::*;
 fn foo() {
     mox! {
         <window>
-            <view foo="bar">
-                "asdf"
+            <view padding="10">
+                <view color="255,0,0,255" width="200" height="200"></view>
+                <view color="0,255,0,255" width="250" height="150"></view>
             </view>
         </window>
     }
