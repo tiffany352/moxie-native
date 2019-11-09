@@ -1,11 +1,11 @@
 mod direct_composition;
+pub mod dom;
 pub mod moxie;
-mod node;
 mod window;
 
-pub use node::{Node, NodeStorage};
-
 use ::moxie::embed::Runtime as MoxieRuntime;
+pub use dom::DomStorage;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use winit::{
     event::Event,
@@ -13,10 +13,19 @@ use winit::{
     window::WindowId,
 };
 
+struct Dom(RefCell<DomStorage>);
+
+impl Dom {
+    fn borrow_mut(&self) -> RefMut<DomStorage> {
+        self.0.borrow_mut()
+    }
+}
+
 #[topo::nested]
-#[topo::from_env(storage: &NodeStorage)]
+#[topo::from_env(storage: &Dom)]
 fn debug_print() {
-    println!("{}", storage.pretty_print_xml(NodeStorage::root()));
+    let storage = storage.borrow_mut();
+    println!("{}", storage.pretty_print_xml(storage.root()));
 }
 
 pub struct Runtime {
@@ -28,14 +37,16 @@ impl Runtime {
     pub fn new(mut root: impl FnMut() + 'static) -> Runtime {
         Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || {
+                let storage = DomStorage::new();
+                let node = storage.root();
                 topo::call!(
                     {
                         root();
                         debug_print!()
                     },
                     env! {
-                        Node => NodeStorage::root(),
-                        NodeStorage => NodeStorage::new(),
+                        Node => node,
+                        Dom => Dom(RefCell::new(storage)),
                     }
                 )
             })),

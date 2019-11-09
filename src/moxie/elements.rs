@@ -1,13 +1,13 @@
 macro_rules! element_macro {
     (
         $(#[$outer:meta])*
-        $name:ident
+        $name:ident, $class:ident
     ) => {
         $(#[$outer])*
         #[macro_export]
         macro_rules! $name {
             ($with_elem:expr) => {
-                $crate::element!(stringify!($name), $with_elem)
+                $crate::element!(::std::marker::PhantomData::<$crate::dom::$name::$class>, $with_elem)
             };
         }
     };
@@ -15,10 +15,10 @@ macro_rules! element_macro {
 
 element_macro! {
     /// A top-level window
-    window
+    window, Window
 }
 
 element_macro! {
     /// A generic layout container
-    view
+    view, View
 }

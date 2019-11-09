@@ -10,6 +10,7 @@ gleam = "0.6.2"
 mozangle = {version = "0.3.1", features = ["egl"]}
 winapi = {version = "0.3", features = ["winerror", "d3d11", "dcomp"]}
 scopeguard = "1"
+slotmap = "0.4"
 
 [dependencies.webrender]
 git = "https://github.com/servo/webrender.git"
