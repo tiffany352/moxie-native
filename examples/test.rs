@@ -7,7 +7,7 @@ use ui_lib::moxie::*;
 fn foo() {
     mox! {
         <window>
-            <view>
+            <view foo="bar">
                 "asdf"
             </view>
         </window>

@@ -3,9 +3,8 @@ pub mod moxie;
 mod node;
 mod window;
 
-pub use node::Node;
+pub use node::{Node, NodeStorage};
 
-use crate::moxie::MemoElement;
 use ::moxie::embed::Runtime as MoxieRuntime;
 use std::collections::HashMap;
 use winit::{
@@ -14,22 +13,29 @@ use winit::{
     window::WindowId,
 };
 
+#[topo::nested]
+#[topo::from_env(storage: &NodeStorage)]
+fn debug_print() {
+    println!("{}", storage.pretty_print_xml(NodeStorage::root()));
+}
+
 pub struct Runtime {
-    root_node: Node,
-    moxie_runtime: MoxieRuntime<Box<dyn FnMut() + 'static>, ()>,
+    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> () + 'static>, ()>,
     windows: HashMap<WindowId, window::Window>,
 }
 
 impl Runtime {
     pub fn new(mut root: impl FnMut() + 'static) -> Runtime {
-        let root_node = Node::create_root();
         Runtime {
-            root_node: root_node.clone(),
             moxie_runtime: MoxieRuntime::new(Box::new(move || {
                 topo::call!(
-                    { root() },
+                    {
+                        root();
+                        debug_print!()
+                    },
                     env! {
-                        MemoElement => MemoElement::new(root_node.clone()),
+                        Node => NodeStorage::root(),
+                        NodeStorage => NodeStorage::new(),
                     }
                 )
             })),
@@ -55,8 +61,6 @@ impl Runtime {
         let event_loop = EventLoop::new();
 
         self.moxie_runtime.run_once();
-
-        println!("{:#?}", self.root_node);
 
         event_loop
             .run(move |event, target, control_flow| self.process(event, target, control_flow));
