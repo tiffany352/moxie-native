@@ -1,12 +1,13 @@
 use crate::direct_composition::{AngleVisual, DirectComposition};
+use crate::dom::{DomStorage, Element, Node, NodeOrText};
+use crate::layout::LogicalPixel;
 use std::sync::mpsc;
 use webrender::{
     api::{
-        units::DeviceIntRect, units::DevicePixel, BorderRadius, ClipMode, ColorF,
-        CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch, PipelineId,
-        RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
+        units::DeviceIntRect, units::DevicePixel, ColorF, DisplayListBuilder, DocumentId, Epoch,
+        PipelineId, RenderApi, RenderNotifier, Transaction,
     },
-    euclid::{Point2D, Rect, Scale, Size2D},
+    euclid::{Point2D, Scale, Size2D},
     Renderer, RendererOptions,
 };
 use winit::{
@@ -14,7 +15,7 @@ use winit::{
     event::WindowEvent,
     event_loop::{EventLoop, EventLoopProxy},
     platform::windows::{WindowBuilderExtWindows, WindowExtWindows},
-    window::{Window as WinitWindow, WindowBuilder},
+    window::{Window as WinitWindow, WindowBuilder, WindowId},
 };
 
 #[derive(Clone)]
@@ -46,10 +47,11 @@ pub struct Window {
     document: DocumentId,
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
+    dom_window: Node,
 }
 
 impl Window {
-    pub fn new(event_loop: &EventLoop<()>) -> Window {
+    pub fn new(dom_window: Node, storage: &mut DomStorage, event_loop: &EventLoop<()>) -> Window {
         let (tx, rx) = mpsc::channel();
         let notifier = Box::new(Notifier {
             events_proxy: event_loop.create_proxy(),
@@ -95,15 +97,44 @@ impl Window {
             document,
             rx,
             renderer,
+            dom_window,
         };
 
         let factor = window.winit_window.hidpi_factor() as f32;
         let inner_size = window.winit_window.inner_size().to_physical(factor as f64);
-        window.render(inner_size);
+        window.render(storage, inner_size);
         window
     }
 
-    pub fn render(&mut self, inner_size: PhysicalSize) {
+    pub fn window_id(&self) -> WindowId {
+        self.winit_window.id()
+    }
+
+    fn render_child(
+        &mut self,
+        storage: &mut DomStorage,
+        pipeline_id: PipelineId,
+        builder: &mut DisplayListBuilder,
+        position: Point2D<f32, LogicalPixel>,
+        node: Node,
+    ) {
+        let element = storage.get_element(node);
+        match element {
+            Element::View(view) => {
+                view.draw(position, Scale::new(1.0), builder, pipeline_id, &[]);
+
+                let children: Vec<NodeOrText> = storage.get_children(node).to_vec();
+                for child in children {
+                    if let NodeOrText::Node(node) = child {
+                        self.render_child(storage, pipeline_id, builder, position, node);
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+
+    pub fn render(&mut self, storage: &mut DomStorage, inner_size: PhysicalSize) {
         println!("render()");
         let factor = self.winit_window.hidpi_factor() as f32;
         let size =
@@ -112,27 +143,20 @@ impl Window {
         let pipeline_id = PipelineId(0, 0);
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
-        let rect = Rect::new(
-            Point2D::new(20.0, 20.0),
-            layout_size - Size2D::new(40.0, 40.0),
-        );
-        let region = ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
-        let clip = builder.define_clip(
-            &SpaceAndClipInfo::root_scroll(pipeline_id),
-            rect,
-            vec![region],
-            None,
-        );
-        builder.push_rect(
-            &CommonItemProperties::new(
-                rect,
-                SpaceAndClipInfo {
-                    spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                    clip_id: clip,
-                },
-            ),
-            ColorF::new(0.2, 0.7, 0.8, 1.0),
-        );
+
+        let children: Vec<NodeOrText> = storage.get_children(self.dom_window).to_vec();
+        for child in children {
+            if let NodeOrText::Node(node) = child {
+                self.render_child(
+                    storage,
+                    pipeline_id,
+                    &mut builder,
+                    Point2D::new(0.0, 0.0),
+                    node,
+                );
+            }
+        }
+
         let mut transaction = Transaction::new();
         transaction.set_display_list(Epoch(0), None, layout_size, builder.finalize(), true);
         transaction.set_root_pipeline(pipeline_id);
@@ -151,12 +175,12 @@ impl Window {
         self.composition.commit();
     }
 
-    pub fn process(&mut self, event: WindowEvent) {
+    pub fn process(&mut self, storage: &mut DomStorage, event: WindowEvent) {
         match event {
             WindowEvent::RedrawRequested => {
                 let factor = self.winit_window.hidpi_factor() as f32;
                 let inner_size = self.winit_window.inner_size().to_physical(factor as f64);
-                self.render(inner_size);
+                self.render(storage, inner_size);
             }
             WindowEvent::Resized(size) => {
                 println!("resize {}x{}", size.width, size.height);
@@ -170,7 +194,7 @@ impl Window {
                         self.composition
                             .create_angle_visual(inner_size.width as u32, inner_size.height as u32),
                     );
-                    self.render(inner_size);
+                    self.render(storage, inner_size);
                 }
             }
             _ => (),

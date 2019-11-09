@@ -3,7 +3,8 @@ use super::Node;
 use slotmap::DenseSlotMap;
 use std::borrow::Cow;
 
-enum NodeOrText {
+#[derive(Clone)]
+pub enum NodeOrText {
     Text(Cow<'static, str>),
     Node(Node),
 }
@@ -65,6 +66,14 @@ impl DomStorage {
             .unwrap()
             .children
             .push(NodeOrText::Text(text));
+    }
+
+    pub fn get_children(&self, node: Node) -> &[NodeOrText] {
+        &self.nodes.get(node).unwrap().children[..]
+    }
+
+    pub fn get_element(&self, node: Node) -> &Element {
+        &self.nodes.get(node).unwrap().element
     }
 
     pub fn pretty_print_xml(&self, node: Node) -> String {

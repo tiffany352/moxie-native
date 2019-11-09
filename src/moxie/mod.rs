@@ -1,7 +1,7 @@
 pub use moxie::*;
 
 use crate::dom::{Element, Node};
-use crate::Dom;
+use crate::runtime::Dom;
 use moxie;
 use std::marker::PhantomData;
 
