@@ -8,3 +8,9 @@ impl Into<Element> for Window {
         Element::Window(self)
     }
 }
+
+pub trait WindowEvent {}
+
+pub struct TestEvent;
+
+impl WindowEvent for TestEvent {}

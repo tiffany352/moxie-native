@@ -99,3 +99,9 @@ impl Into<Element> for View {
         Element::View(self)
     }
 }
+
+pub trait ViewEvent {}
+
+pub struct TestEvent;
+
+impl ViewEvent for TestEvent {}
