@@ -1,4 +1,4 @@
-use super::Element;
+use super::{Element, ElementType};
 use crate::layout::{Layout, LayoutOptions, LogicalLength, LogicalPixel, LogicalSideOffsets};
 use crate::Color;
 use euclid::{Point2D, Rect, Scale};
@@ -118,5 +118,14 @@ pub struct TestEvent;
 impl ViewEvent for TestEvent {
     fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static) {
         view.on_test_event = Some(Box::new(func));
+    }
+}
+
+impl ElementType for View {
+    fn from_element(elt: &Element) -> Option<&Self> {
+        match elt {
+            Element::View(view) => Some(view),
+            _ => None,
+        }
     }
 }

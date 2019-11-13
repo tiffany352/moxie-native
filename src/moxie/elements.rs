@@ -20,7 +20,7 @@ macro_rules! element_macro {
                         let elem;
                         {
                             let mut storage = storage.borrow_mut();
-                            elem = once!(|| storage.create_element($crate::dom::$name::$class::default()));
+                            elem = once!(|| storage.create_element($crate::dom::$name::$class::default()).to_inner());
                             storage.clear_children(elem);
                             storage.add_child(*parent, elem);
                         }

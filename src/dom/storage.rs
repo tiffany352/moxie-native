@@ -1,5 +1,4 @@
-use super::Element;
-use super::Node;
+use super::{Element, ElementType, Node, TypedNode};
 use slotmap::DenseSlotMap;
 use std::borrow::Cow;
 
@@ -33,11 +32,14 @@ impl DomStorage {
         self.root
     }
 
-    pub fn create_element(&mut self, element: impl Into<Element>) -> Node {
-        self.nodes.insert(NodeData {
+    pub fn create_element<Element>(&mut self, element: Element) -> TypedNode<Element>
+    where
+        Element: ElementType,
+    {
+        TypedNode::from_raw(self.nodes.insert(NodeData {
             children: vec![],
             element: element.into(),
-        })
+        }))
     }
 
     pub fn set_attribute(&mut self, node: Node, key: &str, value: Option<Cow<'static, str>>) {
@@ -72,8 +74,32 @@ impl DomStorage {
         &self.nodes.get(node).unwrap().children[..]
     }
 
+    pub fn get_children_of_type<Elt>(&self, node: Node) -> Vec<TypedNode<Elt>>
+    where
+        Elt: ElementType,
+    {
+        let children = &self.nodes.get(node).unwrap().children;
+        let mut result = vec![];
+        for child in children {
+            if let NodeOrText::Node(node) = child {
+                let element = &self.nodes.get(*node).unwrap().element;
+                if let Some(_) = Elt::from_element(element) {
+                    result.push(TypedNode::from_raw(*node));
+                }
+            }
+        }
+        result
+    }
+
     pub fn get_element(&self, node: Node) -> &Element {
         &self.nodes.get(node).unwrap().element
+    }
+
+    pub fn get_element_typed<Elt>(&self, node: TypedNode<Elt>) -> &Elt
+    where
+        Elt: ElementType,
+    {
+        Elt::from_element(&self.nodes.get(node.to_inner()).unwrap().element).unwrap()
     }
 
     pub fn get_element_mut(&mut self, node: Node) -> &mut Element {

@@ -24,3 +24,7 @@ impl Element {
         }
     }
 }
+
+pub trait ElementType: Into<Element> {
+    fn from_element(elt: &Element) -> Option<&Self>;
+}
