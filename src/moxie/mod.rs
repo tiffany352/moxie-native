@@ -1,9 +1,8 @@
 pub use moxie::*;
 
-use crate::dom::{Element, Node};
+use crate::dom::Node;
 use crate::runtime::Dom;
 use moxie;
-use std::marker::PhantomData;
 
 pub mod elements;
 

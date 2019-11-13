@@ -13,31 +13,48 @@ macro_rules! element_macro {
             }
 
             pub fn create(with_elem: impl FnOnce(Self) -> ()) {
-                let parent = &*topo::Env::expect::<$crate::dom::Node>();
-                let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
-                let elem;
-                {
-                    let mut storage = storage.borrow_mut();
-                    elem = once!(|| storage.create_element($crate::dom::$name::$class::default()));
-                    storage.clear_children(elem);
-                    storage.add_child(*parent, elem);
-                }
-                let elem = Self::new(elem);
-                with_elem(elem)
+                topo::call!(
+                    {
+                        let parent = &*topo::Env::expect::<$crate::dom::Node>();
+                        let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
+                        let elem;
+                        {
+                            let mut storage = storage.borrow_mut();
+                            elem = once!(|| storage.create_element($crate::dom::$name::$class::default()));
+                            storage.clear_children(elem);
+                            storage.add_child(*parent, elem);
+                        }
+                        let elem = Self::new(elem);
+                        with_elem(elem)
+                    }
+                )
             }
 
             pub fn attr(&self, key: &str, value: &str) -> &Self {
-                let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
-                let mut storage = storage.borrow_mut();
-                storage.set_attribute(self.0, key, Some(value.to_owned().into()));
+                topo::call!(
+                    {
+                        let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
+                        let mut storage = storage.borrow_mut();
+                        storage.set_attribute(self.0, key, Some(value.to_owned().into()));
+                    }
+                );
                 self
             }
 
-            pub fn on<Event>(&self, callback: impl FnMut(Event) + 'static) -> &Self
+            pub fn on<Event>(&self, callback: impl FnMut(&Event) + 'static) -> &Self
             where
                 Event: $event_trait + 'static,
             {
-                let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
+                topo::call!(
+                    {
+                        let storage = &*topo::Env::expect::<$crate::runtime::Dom>();
+                        let mut storage = storage.borrow_mut();
+                        let element = storage.get_element_mut(self.0);
+                        if let $crate::dom::Element::$class(element) = element {
+                            element.on(callback);
+                        }
+                    }
+                );
                 self
             }
 

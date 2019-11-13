@@ -15,6 +15,7 @@ pub struct View {
     width: Option<f32>,
     height: Option<f32>,
     padding: Option<f32>,
+    on_test_event: Option<Box<dyn FnMut(&TestEvent) + 'static>>,
     layout: Layout,
 }
 
@@ -26,6 +27,7 @@ impl View {
             width: None,
             height: None,
             padding: None,
+            on_test_event: None,
             layout: Layout::new(),
         }
     }
@@ -39,6 +41,13 @@ impl View {
             "padding" => self.padding = value.and_then(|string| string.parse::<f32>().ok()),
             _ => (),
         }
+    }
+
+    pub fn on<Event>(&mut self, func: impl FnMut(&Event) + 'static)
+    where
+        Event: ViewEvent,
+    {
+        Event::set_to_view(self, func);
     }
 
     pub fn create_layout_opts(&self) -> LayoutOptions {
@@ -100,8 +109,14 @@ impl Into<Element> for View {
     }
 }
 
-pub trait ViewEvent {}
+pub trait ViewEvent {
+    fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static);
+}
 
 pub struct TestEvent;
 
-impl ViewEvent for TestEvent {}
+impl ViewEvent for TestEvent {
+    fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static) {
+        view.on_test_event = Some(Box::new(func));
+    }
+}
