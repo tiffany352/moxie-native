@@ -1,9 +1,14 @@
-use super::{Element, ElementType};
+use super::{node::Node, view::View, Element};
+use std::borrow::Cow;
 
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Window {}
 
 impl Window {
+    pub fn new() -> Window {
+        Window {}
+    }
+
     pub fn on<Event>(&mut self, _func: impl FnMut(&Event) + 'static)
     where
         Event: WindowEvent,
@@ -11,19 +16,10 @@ impl Window {
     }
 }
 
-impl Into<Element> for Window {
-    fn into(self) -> Element {
-        Element::Window(self)
-    }
-}
-
 pub trait WindowEvent {}
 
-impl ElementType for Window {
-    fn from_element(elt: &Element) -> Option<&Self> {
-        match elt {
-            Element::Window(window) => Some(window),
-            _ => None,
-        }
-    }
+impl Element for Window {
+    type Child = Node<View>;
+
+    fn set_attribute(&mut self, _key: &str, _value: Option<Cow<'static, str>>) {}
 }

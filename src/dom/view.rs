@@ -1,22 +1,24 @@
-use super::{Element, ElementType};
-use crate::layout::{Layout, LayoutOptions, LogicalLength, LogicalPixel, LogicalSideOffsets};
+use super::Element;
+use crate::dom::node::Node;
+use crate::layout::{
+    LayoutOptions, LogicalLength, LogicalPixel, LogicalPoint, LogicalSideOffsets, LogicalSize,
+};
 use crate::Color;
-use euclid::{Point2D, Rect, Scale};
+use euclid::{Rect, Scale};
 use std::borrow::Cow;
 use webrender::api::{
     units::LayoutPixel, BorderRadius, ClipMode, ColorF, CommonItemProperties, ComplexClipRegion,
     DisplayListBuilder, PipelineId, SpaceAndClipInfo, SpatialId,
 };
 
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq)]
 pub struct View {
     class_name: Option<Cow<'static, str>>,
     color: Option<Color>,
     width: Option<f32>,
     height: Option<f32>,
     padding: Option<f32>,
-    on_test_event: Option<Box<dyn FnMut(&TestEvent) + 'static>>,
-    layout: Layout,
+    //on_test_event: Option<Rc<dyn FnMut(&TestEvent) + 'static>>,
 }
 
 impl View {
@@ -27,19 +29,7 @@ impl View {
             width: None,
             height: None,
             padding: None,
-            on_test_event: None,
-            layout: Layout::new(),
-        }
-    }
-
-    pub fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
-        match key {
-            "className" => self.class_name = value,
-            "color" => self.color = value.and_then(|string| Color::parse(&string[..]).ok()),
-            "width" => self.width = value.and_then(|string| string.parse::<f32>().ok()),
-            "height" => self.height = value.and_then(|string| string.parse::<f32>().ok()),
-            "padding" => self.padding = value.and_then(|string| string.parse::<f32>().ok()),
-            _ => (),
+            //on_test_event: None,
         }
     }
 
@@ -59,23 +49,15 @@ impl View {
         }
     }
 
-    pub fn layout(&self) -> &Layout {
-        &self.layout
-    }
-
-    pub fn layout_mut(&mut self) -> &mut Layout {
-        &mut self.layout
-    }
-
     pub fn draw(
         &self,
-        position: Point2D<f32, LogicalPixel>,
+        position: LogicalPoint,
+        size: LogicalSize,
         scale: Scale<f32, LogicalPixel, LayoutPixel>,
         builder: &mut DisplayListBuilder,
         pipeline_id: PipelineId,
     ) {
-        let layout_size = self.layout.size();
-        let rect = Rect::new(position, layout_size);
+        let rect = Rect::new(position, size);
         let region =
             ComplexClipRegion::new(rect * scale, BorderRadius::uniform(20.), ClipMode::Clip);
         let clip = builder.define_clip(
@@ -103,12 +85,6 @@ impl View {
     }
 }
 
-impl Into<Element> for View {
-    fn into(self) -> Element {
-        Element::View(self)
-    }
-}
-
 pub trait ViewEvent {
     fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static);
 }
@@ -117,15 +93,21 @@ pub struct TestEvent;
 
 impl ViewEvent for TestEvent {
     fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static) {
-        view.on_test_event = Some(Box::new(func));
+        //view.on_test_event = Some(Box::new(func));
     }
 }
 
-impl ElementType for View {
-    fn from_element(elt: &Element) -> Option<&Self> {
-        match elt {
-            Element::View(view) => Some(view),
-            _ => None,
+impl Element for View {
+    type Child = Node<View>;
+
+    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
+        match key {
+            "className" => self.class_name = value,
+            "color" => self.color = value.and_then(|string| Color::parse(&string[..]).ok()),
+            "width" => self.width = value.and_then(|string| string.parse::<f32>().ok()),
+            "height" => self.height = value.and_then(|string| string.parse::<f32>().ok()),
+            "padding" => self.padding = value.and_then(|string| string.parse::<f32>().ok()),
+            _ => (),
         }
     }
 }

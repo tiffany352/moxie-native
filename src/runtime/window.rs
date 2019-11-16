@@ -1,6 +1,7 @@
 use crate::direct_composition::{AngleVisual, DirectComposition};
-use crate::dom::{DomStorage, Element, Node, NodeOrText};
-use crate::layout::{LogicalPixel, LogicalSize};
+use crate::dom::{Node, View, Window as DomWindow};
+use crate::layout::{LayoutEngine, LayoutTreeNode, LogicalPixel};
+use std::rc::Rc;
 use std::sync::mpsc;
 use webrender::{
     api::{
@@ -47,11 +48,11 @@ pub struct Window {
     document: DocumentId,
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
-    dom_window: Node,
+    dom_window: Node<DomWindow>,
 }
 
 impl Window {
-    pub fn new(dom_window: Node, storage: &mut DomStorage, event_loop: &EventLoop<()>) -> Window {
+    pub fn new(dom_window: Node<DomWindow>, event_loop: &EventLoop<()>) -> Window {
         let (tx, rx) = mpsc::channel();
         let notifier = Box::new(Notifier {
             events_proxy: event_loop.create_proxy(),
@@ -102,7 +103,7 @@ impl Window {
 
         let factor = window.winit_window.hidpi_factor() as f32;
         let inner_size = window.winit_window.inner_size().to_physical(factor as f64);
-        window.render(storage, inner_size);
+        window.render(inner_size);
         window
     }
 
@@ -110,80 +111,35 @@ impl Window {
         self.winit_window.id()
     }
 
-    fn layout_child(
-        &mut self,
-        storage: &mut DomStorage,
-        node: Node,
-        parent_max_size: LogicalSize,
-    ) -> Option<LogicalSize> {
-        let max_size = {
-            let element = storage.get_element_mut(node);
-            if let Element::View(view) = element {
-                let opts = view.create_layout_opts();
-                let max_size = view.layout_mut().calc_max_size(&opts, parent_max_size);
-                max_size
-            } else {
-                return None;
-            }
-        };
-
-        let children: Vec<NodeOrText> = storage.get_children(node).to_vec();
-        let mut child_sizes = vec![];
-        child_sizes.reserve(children.len());
-        for child in children {
-            if let NodeOrText::Node(node) = child {
-                if let Some(size) = self.layout_child(storage, node, max_size) {
-                    child_sizes.push(size);
-                }
-            }
-        }
-
-        {
-            let element = storage.get_element_mut(node);
-            if let Element::View(view) = element {
-                let opts = view.create_layout_opts();
-                let min_size = view.layout_mut().calc_min_size(&opts, &child_sizes[..]);
-                Some(min_size)
-            } else {
-                return None;
-            }
+    pub fn set_dom_window(&mut self, new_node: Node<DomWindow>) {
+        if new_node != self.dom_window {
+            self.dom_window = new_node;
         }
     }
 
     fn render_child(
-        &mut self,
-        storage: &mut DomStorage,
+        &self,
         pipeline_id: PipelineId,
         builder: &mut DisplayListBuilder,
         position: Point2D<f32, LogicalPixel>,
-        node: Node,
+        node: &Node<View>,
+        layout: &Rc<LayoutTreeNode>,
     ) {
-        let element = storage.get_element(node);
-        match element {
-            Element::View(view) => {
-                view.draw(position, Scale::new(1.0), builder, pipeline_id);
+        let view = node.element();
+        view.draw(position, layout.size, Scale::new(1.0), builder, pipeline_id);
 
-                let children: Vec<NodeOrText> = storage.get_children(node).to_vec();
-                let child_positions = view.layout().child_positions().to_vec();
-                let mut i = 0;
-                for child in children {
-                    if let NodeOrText::Node(node) = child {
-                        self.render_child(
-                            storage,
-                            pipeline_id,
-                            builder,
-                            position + child_positions[i].to_vector(),
-                            node,
-                        );
-                        i += 1;
-                    }
-                }
-            }
-            _ => (),
+        for (child, layout) in node.children().iter().zip(layout.children.iter()) {
+            self.render_child(
+                pipeline_id,
+                builder,
+                position + layout.position.to_vector(),
+                child,
+                &layout.layout,
+            );
         }
     }
 
-    pub fn render(&mut self, storage: &mut DomStorage, inner_size: PhysicalSize) {
+    pub fn render(&mut self, inner_size: PhysicalSize) {
         println!("render()");
         let factor = self.winit_window.hidpi_factor() as f32;
         let size =
@@ -193,19 +149,21 @@ impl Window {
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
 
-        let children: Vec<NodeOrText> = storage.get_children(self.dom_window).to_vec();
-        for child in children {
-            if let NodeOrText::Node(node) = child {
-                self.layout_child(storage, node, layout_size * Scale::new(1.0));
+        let root_layout = LayoutEngine::layout(&self.dom_window, layout_size * Scale::new(1.0));
 
-                self.render_child(
-                    storage,
-                    pipeline_id,
-                    &mut builder,
-                    Point2D::new(0.0, 0.0),
-                    node,
-                );
-            }
+        for (child, layout) in self
+            .dom_window
+            .children()
+            .iter()
+            .zip(root_layout.children.iter())
+        {
+            self.render_child(
+                pipeline_id,
+                &mut builder,
+                layout.position,
+                child,
+                &layout.layout,
+            );
         }
 
         let mut transaction = Transaction::new();
@@ -226,12 +184,12 @@ impl Window {
         self.composition.commit();
     }
 
-    pub fn process(&mut self, storage: &mut DomStorage, event: WindowEvent) {
+    pub fn process(&mut self, event: WindowEvent) {
         match event {
             WindowEvent::RedrawRequested => {
                 let factor = self.winit_window.hidpi_factor() as f32;
                 let inner_size = self.winit_window.inner_size().to_physical(factor as f64);
-                self.render(storage, inner_size);
+                self.render(inner_size);
             }
             WindowEvent::Resized(size) => {
                 println!("resize {}x{}", size.width, size.height);
@@ -245,7 +203,7 @@ impl Window {
                         self.composition
                             .create_angle_visual(inner_size.width as u32, inner_size.height as u32),
                     );
-                    self.render(storage, inner_size);
+                    self.render(inner_size);
                 }
             }
             _ => (),

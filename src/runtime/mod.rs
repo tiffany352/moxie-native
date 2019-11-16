@@ -1,58 +1,29 @@
-use crate::dom::{DomStorage, Element, Node, NodeOrText};
+use crate::dom::{Node, Window};
 use ::moxie::embed::Runtime as MoxieRuntime;
-use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::iter;
 use winit::{
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
     window::WindowId,
 };
+
 mod window;
 
-pub struct Dom(Rc<RefCell<DomStorage>>);
-
-impl Dom {
-    pub fn borrow_mut(&self) -> RefMut<DomStorage> {
-        self.0.borrow_mut()
-    }
-}
-
-#[topo::nested]
-#[topo::from_env(storage: &Dom)]
-fn debug_print() {
-    let storage = storage.borrow_mut();
-    println!("{}", storage.pretty_print_xml(storage.root()));
-}
-
 pub struct Runtime {
-    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> () + 'static>, ()>,
+    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Vec<Node<Window>> + 'static>, Vec<Node<Window>>>,
     windows: HashMap<WindowId, window::Window>,
-    node_to_window: HashMap<Node, WindowId>,
-    dom: Rc<RefCell<DomStorage>>,
+    window_ids: Vec<WindowId>,
 }
 
 impl Runtime {
     pub fn new(mut root: impl FnMut() + 'static) -> Runtime {
-        let storage = DomStorage::new();
-        let root_node = storage.root();
-        let storage = Rc::new(RefCell::new(storage));
         Runtime {
-            dom: storage.clone(),
             moxie_runtime: MoxieRuntime::new(Box::new(move || {
-                topo::call!(
-                    {
-                        root();
-                        debug_print!()
-                    },
-                    env! {
-                        Node => root_node,
-                        Dom => Dom(storage.clone()),
-                    }
-                )
+                topo::call!({ crate::moxie::elements::root(&mut root) })
             })),
             windows: HashMap::new(),
-            node_to_window: HashMap::new(),
+            window_ids: vec![],
         }
     }
 
@@ -63,36 +34,45 @@ impl Runtime {
         control_flow: &mut ControlFlow,
     ) {
         match event {
-            Event::WindowEvent { event, window_id } => self
-                .windows
-                .get_mut(&window_id)
-                .unwrap()
-                .process(&mut *self.dom.borrow_mut(), event),
+            Event::WindowEvent { event, window_id } => {
+                self.windows.get_mut(&window_id).unwrap().process(event)
+            }
             _ => *control_flow = ControlFlow::Wait,
         }
     }
 
     fn update_runtime(&mut self, event_loop: &EventLoop<()>) {
-        self.moxie_runtime.run_once();
+        let windows = self.moxie_runtime.run_once();
 
-        let mut storage = self.dom.borrow_mut();
-        let root = storage.root();
-        let mut create_windows = vec![];
-        for child in storage.get_children(root) {
-            if let NodeOrText::Node(node) = child {
-                if let Element::Window(_dom_window) = storage.get_element(*node) {
-                    if !self.node_to_window.contains_key(node) {
-                        create_windows.push(*node);
-                    }
+        let first_iter = windows.into_iter().map(Some).chain(iter::repeat(None));
+        let second_iter = self
+            .window_ids
+            .drain(..)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(Some)
+            .chain(iter::repeat(None));
+
+        for (dom_window, window_id) in first_iter.zip(second_iter) {
+            match (dom_window, window_id) {
+                (Some(dom_window), Some(window_id)) => {
+                    self.windows
+                        .get_mut(&window_id)
+                        .unwrap()
+                        .set_dom_window(dom_window);
+                    self.window_ids.push(window_id);
                 }
+                (Some(dom_window), None) => {
+                    let window = window::Window::new(dom_window, event_loop);
+                    let id = window.window_id();
+                    self.windows.insert(id, window);
+                    self.window_ids.push(id);
+                }
+                (None, Some(window_id)) => {
+                    self.windows.remove(&window_id);
+                }
+                (None, None) => break,
             }
-        }
-
-        for node in create_windows {
-            let window = window::Window::new(node, &mut *storage, &event_loop);
-            let id = window.window_id();
-            self.windows.insert(id, window);
-            self.node_to_window.insert(node, id);
         }
     }
 

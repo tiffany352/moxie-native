@@ -6,5 +6,4 @@ pub mod moxie;
 pub mod runtime;
 
 pub use color::Color;
-pub use dom::DomStorage;
 pub use runtime::Runtime;
