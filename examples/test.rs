@@ -1,19 +1,19 @@
 #[macro_use]
 extern crate ui_lib;
 
-use ui_lib::dom::view::TestEvent;
-use ui_lib::moxie::*;
+use moxie::*;
+use ui_lib::dom::*;
 
 #[topo::nested]
-fn foo() {
-    mox! {
+fn foo() -> Vec<Node<Window>> {
+    vec![mox! {
         <window>
-            <view padding="10" on={|_:&TestEvent| ()}>
+            <view padding="10">
                 <view color="255,0,0,255" width="200" height="200"></view>
                 <view color="0,255,0,255" width="250" height="150"></view>
             </view>
         </window>
-    }
+    }]
 }
 
 fn main() {

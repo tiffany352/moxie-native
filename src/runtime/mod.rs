@@ -17,11 +17,9 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn new(mut root: impl FnMut() + 'static) -> Runtime {
+    pub fn new(mut root: impl FnMut() -> Vec<Node<Window>> + 'static) -> Runtime {
         Runtime {
-            moxie_runtime: MoxieRuntime::new(Box::new(move || {
-                topo::call!({ crate::moxie::elements::root(&mut root) })
-            })),
+            moxie_runtime: MoxieRuntime::new(Box::new(move || topo::call!({ root() }))),
             windows: HashMap::new(),
             window_ids: vec![],
         }

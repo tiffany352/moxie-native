@@ -130,21 +130,11 @@ fn tag_to_tokens(
         .for_each(|ts| contents.extend(ts));
 
     if let Some(items) = children {
-        let mut children = quote!();
-        items
-            .iter()
-            .map(ToTokens::to_token_stream)
-            .for_each(|ts| children.extend(quote!(#ts;)));
-
-        contents.extend(quote!(
-            .inner(|| {
-                #children
-            })
-        ));
-    } else if !contents.is_empty() {
-        // if there were attributes or handlers installed but there isn't an inner function to call
-        // with its own return type, the previous calls probably return references that can't return
-        contents.extend(quote!(;));
+        items.iter().map(ToTokens::to_token_stream).for_each(|ts| {
+            contents.extend(quote!(
+                .add_child(#ts)
+            ))
+        });
     }
 
     let fn_args = fn_args.as_ref().map(|args| match &args.value {
@@ -175,7 +165,7 @@ fn tag_to_tokens(
                 "can't emit function arguments at the same time as attributes or children yet"
             )
         }
-        quote!(#name!(|_e| { _e #contents }))
+        quote!(#name!(|_e| { _e #contents .build() }))
     };
 
     stream.extend(invocation);

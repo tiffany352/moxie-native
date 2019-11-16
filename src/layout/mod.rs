@@ -1,5 +1,6 @@
 use crate::dom::{Node, View, Window};
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
+use moxie::embed::Runtime;
 use moxie::*;
 use std::ptr;
 use std::rc::Rc;
@@ -26,8 +27,6 @@ impl Default for LayoutOptions {
         }
     }
 }
-
-pub struct LayoutEngine;
 
 pub struct LayoutChild {
     pub position: LogicalPoint,
@@ -61,7 +60,17 @@ impl PartialEq for LayoutInputs {
     }
 }
 
+pub struct LayoutEngine {
+    runtime: Runtime<fn() -> Rc<LayoutTreeNode>, Rc<LayoutTreeNode>>,
+}
+
 impl LayoutEngine {
+    pub fn new() -> LayoutEngine {
+        LayoutEngine {
+            runtime: Runtime::new(LayoutEngine::run_layout),
+        }
+    }
+
     fn calc_max_size(opts: &LayoutOptions, parent_size: LogicalSize) -> LogicalSize {
         let mut outer = parent_size;
         if let Some(width) = opts.width {
@@ -85,7 +94,7 @@ impl LayoutEngine {
             let size = child.size;
             width = width.max(size.width);
             child_positions.push(LayoutChild {
-                position: point2(0.0, height),
+                position: point2(opts.padding.left, height + opts.padding.top),
                 layout: child.clone(),
             });
             height += size.height;
@@ -119,21 +128,32 @@ impl LayoutEngine {
         })
     }
 
-    pub fn layout(node: &Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
-        topo::root!({
+    #[topo::from_env(node: &Node<Window>, size: &LogicalSize)]
+    fn run_layout() -> Rc<LayoutTreeNode> {
+        topo::call!({
             let mut child_nodes = vec![];
 
             for child in node.children() {
                 child_nodes.push(LayoutChild {
                     position: point2(0.0, 0.0),
-                    layout: Self::layout_inner(child, size),
+                    layout: Self::layout_inner(child, *size),
                 });
             }
 
             Rc::new(LayoutTreeNode {
-                size: size,
+                size: *size,
                 children: child_nodes,
             })
         })
+    }
+
+    pub fn layout(&mut self, node: &Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
+        topo::call!(
+            { self.runtime.run_once() },
+            env! {
+                Node<Window> => node.clone(),
+                LogicalSize => size,
+            }
+        )
     }
 }

@@ -49,6 +49,7 @@ pub struct Window {
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
     dom_window: Node<DomWindow>,
+    layout_engine: LayoutEngine,
 }
 
 impl Window {
@@ -99,6 +100,7 @@ impl Window {
             rx,
             renderer,
             dom_window,
+            layout_engine: LayoutEngine::new(),
         };
 
         let factor = window.winit_window.hidpi_factor() as f32;
@@ -149,7 +151,9 @@ impl Window {
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
 
-        let root_layout = LayoutEngine::layout(&self.dom_window, layout_size * Scale::new(1.0));
+        let root_layout = self
+            .layout_engine
+            .layout(&self.dom_window, layout_size * Scale::new(1.0));
 
         for (child, layout) in self
             .dom_window
