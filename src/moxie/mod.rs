@@ -1,8 +1,14 @@
 pub use moxie::*;
-
-use moxie;
-
 pub mod elements;
 
-#[topo::nested]
-pub fn text(_s: impl ToString) {}
+#[macro_export]
+macro_rules! text {
+    ($s:expr) => {
+        $crate::moxie::text($s)
+    };
+}
+
+/// Text node
+pub fn text(s: impl ToString) -> String {
+    s.to_string()
+}

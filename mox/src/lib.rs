@@ -114,6 +114,28 @@ fn args_and_attrs(snaxttrs: Vec<SnaxAttribute>) -> (Option<MoxArgs>, Vec<MoxAttr
     (args, snaxs.map(MoxAttr::from).collect())
 }
 
+fn item_to_child(item: &MoxItem, stream: &mut TokenStream) {
+    match item {
+        MoxItem::Tag(tag) => {
+            let ts = tag.to_token_stream();
+            stream.extend(quote!( .add_child(#ts) ));
+        }
+        MoxItem::TagNoChildren(tag) => {
+            let ts = tag.to_token_stream();
+            stream.extend(quote!( .add_child(#ts) ));
+        }
+        MoxItem::Fragment(items) => {
+            for item in items {
+                item_to_child(item, stream);
+            }
+        }
+        MoxItem::Content(tt) => {
+            let ts = tt.to_token_stream();
+            stream.extend(quote!( .add_content(#ts) ));
+        }
+    }
+}
+
 fn tag_to_tokens(
     name: &Ident,
     fn_args: &Option<MoxArgs>,
@@ -130,11 +152,9 @@ fn tag_to_tokens(
         .for_each(|ts| contents.extend(ts));
 
     if let Some(items) = children {
-        items.iter().map(ToTokens::to_token_stream).for_each(|ts| {
-            contents.extend(quote!(
-                .add_child(#ts)
-            ))
-        });
+        for item in items {
+            item_to_child(item, &mut contents);
+        }
     }
 
     let fn_args = fn_args.as_ref().map(|args| match &args.value {

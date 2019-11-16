@@ -34,6 +34,11 @@ where
         self
     }
 
+    pub fn add_content(mut self, child: impl Into<Elt::Child>) -> Self {
+        self.children.push(child.into());
+        self
+    }
+
     pub fn build(self) -> Node<Elt> {
         memo!((self.element, self.children), |(elt, children): &(
             Elt,
