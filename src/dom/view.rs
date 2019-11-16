@@ -1,14 +1,11 @@
-use super::Element;
-use crate::dom::node::Node;
-use crate::layout::{
-    LayoutOptions, LogicalLength, LogicalPixel, LogicalPoint, LogicalSideOffsets, LogicalSize,
-};
+use super::{DrawContext, Element, Node, NodeChild, Span};
+use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::Color;
-use euclid::{Rect, Scale};
+use euclid::Rect;
 use std::borrow::Cow;
 use webrender::api::{
-    units::LayoutPixel, BorderRadius, ClipMode, ColorF, CommonItemProperties, ComplexClipRegion,
-    DisplayListBuilder, PipelineId, SpaceAndClipInfo, SpatialId,
+    BorderRadius, ClipMode, ColorF, CommonItemProperties, ComplexClipRegion, SpaceAndClipInfo,
+    SpatialId,
 };
 
 #[derive(Default, Clone, PartialEq)]
@@ -39,50 +36,6 @@ impl View {
     {
         Event::set_to_view(self, func);
     }
-
-    pub fn create_layout_opts(&self) -> LayoutOptions {
-        LayoutOptions {
-            width: self.width.map(LogicalLength::new),
-            height: self.height.map(LogicalLength::new),
-            padding: LogicalSideOffsets::new_all_same(self.padding.unwrap_or(0.0)),
-            ..Default::default()
-        }
-    }
-
-    pub fn draw(
-        &self,
-        position: LogicalPoint,
-        size: LogicalSize,
-        scale: Scale<f32, LogicalPixel, LayoutPixel>,
-        builder: &mut DisplayListBuilder,
-        pipeline_id: PipelineId,
-    ) {
-        let rect = Rect::new(position, size);
-        let region =
-            ComplexClipRegion::new(rect * scale, BorderRadius::uniform(20.), ClipMode::Clip);
-        let clip = builder.define_clip(
-            &SpaceAndClipInfo::root_scroll(pipeline_id),
-            rect * scale,
-            vec![region],
-            None,
-        );
-        let color = self.color.unwrap_or(Color::new(50, 180, 200, 255));
-        builder.push_rect(
-            &CommonItemProperties::new(
-                rect * scale,
-                SpaceAndClipInfo {
-                    spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                    clip_id: clip,
-                },
-            ),
-            ColorF::new(
-                color.red as f32 / 255.0,
-                color.green as f32 / 255.0,
-                color.blue as f32 / 255.0,
-                color.alpha as f32 / 255.0,
-            ),
-        );
-    }
 }
 
 pub trait ViewEvent {
@@ -97,8 +50,61 @@ impl ViewEvent for TestEvent {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub enum ViewChild {
+    View(Node<View>),
+    Span(Node<Span>),
+}
+
+impl From<Node<View>> for ViewChild {
+    fn from(node: Node<View>) -> Self {
+        ViewChild::View(node)
+    }
+}
+
+impl From<Node<Span>> for ViewChild {
+    fn from(node: Node<Span>) -> Self {
+        ViewChild::Span(node)
+    }
+}
+
+impl NodeChild for ViewChild {
+    fn draw(&self, context: DrawContext) {
+        match self {
+            ViewChild::View(view) => view.draw(context),
+            ViewChild::Span(span) => span.draw(context),
+        }
+    }
+
+    fn create_layout_opts(&self) -> LayoutOptions {
+        match self {
+            ViewChild::View(view) => view.create_layout_opts(),
+            ViewChild::Span(span) => span.create_layout_opts(),
+        }
+    }
+
+    fn get_child(&self, index: usize) -> Option<&dyn NodeChild> {
+        match self {
+            ViewChild::View(view) => {
+                if let Some(child) = view.children().get(index) {
+                    Some(child)
+                } else {
+                    None
+                }
+            }
+            ViewChild::Span(span) => {
+                if let Some(child) = span.children().get(index) {
+                    Some(child)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
 impl Element for View {
-    type Child = Node<View>;
+    type Child = ViewChild;
 
     fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
         match key {
@@ -108,6 +114,46 @@ impl Element for View {
             "height" => self.height = value.and_then(|string| string.parse::<f32>().ok()),
             "padding" => self.padding = value.and_then(|string| string.parse::<f32>().ok()),
             _ => (),
+        }
+    }
+
+    fn draw(&self, context: DrawContext) {
+        let rect = Rect::new(context.position, context.size);
+        let region = ComplexClipRegion::new(
+            rect * context.scale,
+            BorderRadius::uniform(20.),
+            ClipMode::Clip,
+        );
+        let clip = context.builder.define_clip(
+            &SpaceAndClipInfo::root_scroll(context.pipeline_id),
+            rect * context.scale,
+            vec![region],
+            None,
+        );
+        let color = self.color.unwrap_or(Color::new(50, 180, 200, 255));
+        context.builder.push_rect(
+            &CommonItemProperties::new(
+                rect * context.scale,
+                SpaceAndClipInfo {
+                    spatial_id: SpatialId::root_scroll_node(context.pipeline_id),
+                    clip_id: clip,
+                },
+            ),
+            ColorF::new(
+                color.red as f32 / 255.0,
+                color.green as f32 / 255.0,
+                color.blue as f32 / 255.0,
+                color.alpha as f32 / 255.0,
+            ),
+        );
+    }
+
+    fn create_layout_opts(&self) -> LayoutOptions {
+        LayoutOptions {
+            width: self.width.map(LogicalLength::new),
+            height: self.height.map(LogicalLength::new),
+            padding: LogicalSideOffsets::new_all_same(self.padding.unwrap_or(0.0)),
+            ..Default::default()
         }
     }
 }

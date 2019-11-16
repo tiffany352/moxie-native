@@ -1,5 +1,8 @@
 use crate::direct_composition::{AngleVisual, DirectComposition};
-use crate::dom::{Node, View, Window as DomWindow};
+use crate::dom::{
+    element::{children, DrawContext},
+    Node, NodeChild, Window as DomWindow,
+};
 use crate::layout::{LayoutEngine, LayoutTreeNode, LogicalPixel};
 use std::rc::Rc;
 use std::sync::mpsc;
@@ -123,17 +126,28 @@ impl Window {
         &self,
         pipeline_id: PipelineId,
         builder: &mut DisplayListBuilder,
+        transaction: &mut Transaction,
+        api: &RenderApi,
         position: Point2D<f32, LogicalPixel>,
-        node: &Node<View>,
+        node: &dyn NodeChild,
         layout: &Rc<LayoutTreeNode>,
     ) {
-        let view = node.element();
-        view.draw(position, layout.size, Scale::new(1.0), builder, pipeline_id);
+        node.draw(DrawContext {
+            position,
+            size: layout.size,
+            scale: Scale::new(1.0),
+            pipeline_id,
+            builder,
+            transaction,
+            api,
+        });
 
-        for (child, layout) in node.children().iter().zip(layout.children.iter()) {
+        for (child, layout) in children(node).zip(layout.children.iter()) {
             self.render_child(
                 pipeline_id,
                 builder,
+                transaction,
+                api,
                 position + layout.position.to_vector(),
                 child,
                 &layout.layout,
@@ -150,6 +164,7 @@ impl Window {
         let pipeline_id = PipelineId(0, 0);
         let layout_size = size.to_f32() / Scale::new(factor);
         let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
+        let mut transaction = Transaction::new();
 
         let root_layout = self
             .layout_engine
@@ -164,13 +179,14 @@ impl Window {
             self.render_child(
                 pipeline_id,
                 &mut builder,
+                &mut transaction,
+                &self.api,
                 layout.position,
                 child,
                 &layout.layout,
             );
         }
 
-        let mut transaction = Transaction::new();
         transaction.set_display_list(Epoch(0), None, layout_size, builder.finalize(), true);
         transaction.set_root_pipeline(pipeline_id);
         transaction.generate_frame();

@@ -65,3 +65,11 @@ macro_rules! view {
         $crate::moxie::elements::Builder::<$crate::dom::View>::create($with_elem)
     };
 }
+
+/// Container for inline text
+#[macro_export]
+macro_rules! span {
+    ($with_elem:expr) => {
+        $crate::moxie::elements::Builder::<$crate::dom::Span>::create($with_elem)
+    };
+}

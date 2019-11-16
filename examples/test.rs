@@ -9,6 +9,10 @@ fn foo() -> Vec<Node<Window>> {
     vec![mox! {
         <window>
             <view padding="10">
+                <span>
+                    "asdf"
+                    "foo bar baz"
+                </span>
                 <view color="255,0,0,255" width="200" height="200"></view>
                 <view color="0,255,0,255" width="250" height="150"></view>
             </view>
