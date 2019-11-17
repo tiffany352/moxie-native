@@ -69,6 +69,11 @@ enum UnresolvedLayout {
 }
 
 impl TextLayoutInfo {
+    fn advance_past_whitespace(&self, offset: usize) -> usize {
+        let string = self.text[offset..].trim_start();
+        string.as_ptr() as usize - self.text.as_ptr() as usize
+    }
+
     #[topo::from_env(collection: &Rc<FontCollection>)]
     fn fill_line(&self, width: f32, offset: usize) -> (usize, f32) {
         let mut session = LayoutSession::create(&self.text, &TextStyle { size: 32.0 }, collection);
@@ -216,27 +221,27 @@ impl LayoutEngine {
                             let mut offset = 0;
                             while offset < text.text.len() {
                                 let remaining = max_size.width - x;
-                                let (end, width) = text.fill_line(remaining, offset);
-                                let start = offset;
+                                let (end, mut width) = text.fill_line(remaining, offset);
+                                let mut start = offset;
                                 offset += end;
-                                let width = if end == 0 {
+                                if end == 0 {
                                     height += line_height;
                                     longest_line = longest_line.max(x);
                                     x = 0.0;
                                     line_height = 0.0;
-                                    let (end, width) = text.fill_line(max_size.width, offset);
+                                    offset = text.advance_past_whitespace(offset);
+                                    start = offset;
+                                    let (end, new_width) = text.fill_line(max_size.width, offset);
+                                    width = new_width;
                                     offset += end;
                                     if end == 0 {
                                         // overflow
-                                        let (end, width) = text.fill_line(99999999.0, offset);
+                                        let (end, new_width) = text.fill_line(99999999.0, offset);
                                         offset += end;
-                                        width
-                                    } else {
-                                        width
+                                        width = new_width;
                                     }
-                                } else {
-                                    width
-                                };
+                                }
+
                                 child_positions.push(LayoutChild {
                                     index,
                                     position: point2(
