@@ -1,5 +1,5 @@
 use super::Element;
-use crate::layout::{LayoutOptions, LayoutType};
+use crate::layout::{LayoutOptions, LayoutType, LogicalLength};
 use crate::render::PaintDetails;
 use crate::Color;
 use std::borrow::Cow;
@@ -8,6 +8,7 @@ use std::borrow::Cow;
 pub struct Span {
     class_name: Option<Cow<'static, str>>,
     color: Option<Color>,
+    text_size: Option<f32>,
 }
 
 impl Span {
@@ -15,6 +16,7 @@ impl Span {
         Span {
             class_name: None,
             color: None,
+            text_size: None,
         }
     }
 }
@@ -26,6 +28,7 @@ impl Element for Span {
         match key {
             "className" => self.class_name = value,
             "color" => self.color = value.and_then(|s| Color::parse(s.as_ref()).ok()),
+            "textSize" => self.text_size = value.and_then(|s| s.parse::<f32>().ok()),
             _ => (),
         }
     }
@@ -34,9 +37,13 @@ impl Element for Span {
         None
     }
 
-    fn create_layout_opts(&self) -> LayoutOptions {
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {
             layout_ty: LayoutType::Inline,
+            text_size: self
+                .text_size
+                .map(LogicalLength::new)
+                .unwrap_or(parent_opts.text_size),
             ..Default::default()
         }
     }

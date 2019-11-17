@@ -8,7 +8,7 @@ pub trait Element: Default + Clone + PartialEq + 'static {
 
     fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>);
 
-    fn create_layout_opts(&self) -> LayoutOptions;
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
 
     fn paint(&self) -> Option<PaintDetails> {
         None
@@ -26,7 +26,7 @@ where
 
 pub trait NodeChild: 'static {
     fn paint(&self) -> Option<PaintDetails>;
-    fn create_layout_opts(&self) -> LayoutOptions;
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild>;
 }
 
@@ -60,8 +60,8 @@ where
         Element::paint(self.element())
     }
 
-    fn create_layout_opts(&self) -> LayoutOptions {
-        Element::create_layout_opts(self.element())
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
+        Element::create_layout_opts(self.element(), parent_opts)
     }
 
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild> {
@@ -81,9 +81,10 @@ impl NodeChild for String {
         })
     }
 
-    fn create_layout_opts(&self) -> LayoutOptions {
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {
             layout_ty: LayoutType::Text(self.clone()),
+            text_size: parent_opts.text_size,
             ..Default::default()
         }
     }

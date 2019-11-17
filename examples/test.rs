@@ -10,9 +10,11 @@ fn foo() -> Vec<Node<Window>> {
     vec![mox! {
         <window>
             <view padding="10" on={|_:&TestEvent| ()}>
+                <span textSize="20">
+                    "Bigger Te" "xt"
+                </span>
                 <span>
-                    "as" "df"
-                    " foo bar baz"
+                    "foo bar baz"
                     " the quick brown fox jumps over the lazy dog"
                 </span>
                 <view color="255,0,0,255" width="200" height="200"></view>

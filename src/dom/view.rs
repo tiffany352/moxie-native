@@ -50,10 +50,10 @@ impl NodeChild for ViewChild {
         }
     }
 
-    fn create_layout_opts(&self) -> LayoutOptions {
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
         match self {
-            ViewChild::View(view) => view.create_layout_opts(),
-            ViewChild::Span(span) => span.create_layout_opts(),
+            ViewChild::View(view) => view.create_layout_opts(parent_opts),
+            ViewChild::Span(span) => span.create_layout_opts(parent_opts),
         }
     }
 
@@ -98,11 +98,12 @@ impl Element for View {
         })
     }
 
-    fn create_layout_opts(&self) -> LayoutOptions {
+    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {
             width: self.width.map(LogicalLength::new),
             height: self.height.map(LogicalLength::new),
             padding: LogicalSideOffsets::new_all_same(self.padding.unwrap_or(0.0)),
+            text_size: parent_opts.text_size,
             ..Default::default()
         }
     }

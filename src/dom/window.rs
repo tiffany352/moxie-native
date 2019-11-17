@@ -16,7 +16,7 @@ impl Element for Window {
 
     fn set_attribute(&mut self, _key: &str, _value: Option<Cow<'static, str>>) {}
 
-    fn create_layout_opts(&self) -> LayoutOptions {
+    fn create_layout_opts(&self, _parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {
             ..Default::default()
         }

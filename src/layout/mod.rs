@@ -317,14 +317,18 @@ impl LayoutEngine {
         }))
     }
 
-    fn layout_child(node: &dyn NodeChild, parent_max_size: LogicalSize) -> UnresolvedLayout {
+    fn layout_child(
+        node: &dyn NodeChild,
+        parent_max_size: LogicalSize,
+        parent_opts: &LayoutOptions,
+    ) -> UnresolvedLayout {
         topo::call!({
-            let opts = node.create_layout_opts();
+            let opts = node.create_layout_opts(parent_opts);
 
             let max_size = Self::calc_max_size(&opts, parent_max_size);
             let mut children = vec![];
             for child in get_children(node) {
-                children.push(Self::layout_child(child, max_size));
+                children.push(Self::layout_child(child, max_size, &opts));
             }
 
             moxie::memo!(
@@ -353,6 +357,8 @@ impl LayoutEngine {
             Rc::new(collection)
         });
 
+        let opts = node.create_layout_opts(&LayoutOptions::default());
+
         topo::call!(
             {
                 let mut child_nodes = vec![];
@@ -361,7 +367,7 @@ impl LayoutEngine {
                     child_nodes.push(LayoutChild {
                         index,
                         position: point2(0.0, 0.0),
-                        layout: Self::layout_child(child, *size).resolve(),
+                        layout: Self::layout_child(child, *size, &opts).resolve(),
                     });
                 }
 
