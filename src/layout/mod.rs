@@ -1,4 +1,4 @@
-use crate::dom::{view::ViewChild, Element, Node, Span, View, Window};
+use crate::dom::{element::children as get_children, Node, NodeChild, Window};
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -20,6 +20,7 @@ pub struct LayoutOptions {
     pub padding: LogicalSideOffsets,
     pub width: Option<LogicalLength>,
     pub height: Option<LogicalLength>,
+    pub text: Option<String>,
 }
 
 impl Default for LayoutOptions {
@@ -28,6 +29,7 @@ impl Default for LayoutOptions {
             padding: LogicalSideOffsets::new_all_same(0.0f32),
             width: None,
             height: None,
+            text: None,
         }
     }
 }
@@ -103,6 +105,10 @@ impl LayoutEngine {
             });
             height += size.height;
         }
+        if let Some(_) = opts.text {
+            width = 200.0;
+            height = 50.0;
+        }
         let mut outer =
             size2(width, height) + size2(opts.padding.horizontal(), opts.padding.vertical());
         if let Some(width) = opts.width {
@@ -117,72 +123,14 @@ impl LayoutEngine {
         })
     }
 
-    #[topo::from_env(collection: &Rc<FontCollection>)]
-    fn layout_span(node: &Node<Span>, parent_max_size: LogicalSize) -> Rc<LayoutTreeNode> {
+    fn layout_child(node: &dyn NodeChild, parent_max_size: LogicalSize) -> Rc<LayoutTreeNode> {
         topo::call!({
-            let span = node.element();
-            let opts = span.create_layout_opts();
-
-            /*
-            let max_size = Self::calc_max_size(&opts, parent_max_size);
-            let inner_text = node.children().join("");
-            let len = inner_text.len();
-            let size = 20.0;
-            let mut layout = LayoutSession::create(&inner_text, &TextStyle { size }, &**collection);
-
-            for word in inner_text.split_whitespace() {
-                let start = word.as_ptr() as usize - inner_text.as_ptr() as usize;
-                let end = start + word.len();
-
-                println!("word: {}", word);
-                for run in layout.iter_substr(start..end) {
-                    let font = run.font();
-                    for glyph in run.glyphs() {
-                        println!("offset {}", glyph.offset);
-                    }
-                }
-            }
-
-            let mut num_lines = 1;
-            let mut x = 0.0;
-            for run in layout.iter_substr(0..len) {
-                let font = run.font();
-                for glyph in run.glyphs() {
-                    let id = glyph.glyph_id;
-                    let x_advance = 20.0;
-                    if x + x_advance > max_size.width {
-                        num_lines += 1;
-                        x = 0.0;
-                    }
-                    x += x_advance;
-                }
-            }
-
-            let min_size = size2(max_size.width, num_lines as f32 * size + 100.0);*/
-
-            let min_size = size2(300.0, 200.0);
-
-            moxie::memo!(min_size, |min_size| {
-                Rc::new(LayoutTreeNode {
-                    size: *min_size,
-                    children: vec![],
-                })
-            })
-        })
-    }
-
-    fn layout_view(node: &Node<View>, parent_max_size: LogicalSize) -> Rc<LayoutTreeNode> {
-        topo::call!({
-            let view = node.element();
-            let opts = view.create_layout_opts();
+            let opts = node.create_layout_opts();
 
             let max_size = Self::calc_max_size(&opts, parent_max_size);
             let mut children = vec![];
-            for child in node.children() {
-                match child {
-                    ViewChild::View(view) => children.push(Self::layout_view(view, max_size)),
-                    ViewChild::Span(span) => children.push(Self::layout_span(span, max_size)),
-                }
+            for child in get_children(node) {
+                children.push(Self::layout_child(child, max_size));
             }
 
             moxie::memo!(LayoutInputs { children, opts }, Self::calc_layout)
@@ -211,7 +159,7 @@ impl LayoutEngine {
                 for child in node.children() {
                     child_nodes.push(LayoutChild {
                         position: point2(0.0, 0.0),
-                        layout: Self::layout_view(child, *size),
+                        layout: Self::layout_child(child, *size),
                     });
                 }
 
@@ -226,11 +174,11 @@ impl LayoutEngine {
         )
     }
 
-    pub fn layout(&mut self, node: &Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
+    pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
         topo::call!(
             { self.runtime.run_once() },
             env! {
-                Node<Window> => node.clone(),
+                Node<Window> => node,
                 LogicalSize => size,
             }
         )

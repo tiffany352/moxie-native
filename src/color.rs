@@ -1,4 +1,7 @@
-#[derive(Copy, Clone, Eq, PartialEq)]
+use std::fmt;
+use webrender::api::ColorF;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Color {
     pub red: u8,
     pub green: u8,
@@ -44,6 +47,31 @@ impl Color {
             Ok(Color::new(components[0], components[1], components[2], 255))
         } else {
             Err(())
+        }
+    }
+}
+
+impl Into<ColorF> for Color {
+    fn into(self) -> ColorF {
+        ColorF::new(
+            self.red as f32 / 255.0,
+            self.green as f32 / 255.0,
+            self.blue as f32 / 255.0,
+            self.alpha as f32 / 255.0,
+        )
+    }
+}
+
+impl fmt::Display for Color {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        if self.alpha == 255 {
+            write!(fmt, "rgb({}, {}, {})", self.red, self.green, self.blue)
+        } else {
+            write!(
+                fmt,
+                "rgba({}, {}, {}, {})",
+                self.red, self.green, self.blue, self.alpha
+            )
         }
     }
 }

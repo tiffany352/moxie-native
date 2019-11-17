@@ -1,30 +1,22 @@
 use super::Node;
-use crate::layout::{LayoutOptions, LogicalPixel, LogicalPoint, LogicalSize};
-use euclid::Scale;
+use crate::layout::LayoutOptions;
+use crate::render::PaintDetails;
 use std::borrow::Cow;
-use webrender::api::{units::LayoutPixel, DisplayListBuilder, PipelineId, RenderApi, Transaction};
-
-pub struct DrawContext<'a> {
-    pub position: LogicalPoint,
-    pub size: LogicalSize,
-    pub scale: Scale<f32, LogicalPixel, LayoutPixel>,
-    pub pipeline_id: PipelineId,
-    pub builder: &'a mut DisplayListBuilder,
-    pub transaction: &'a mut Transaction,
-    pub api: &'a RenderApi,
-}
 
 pub trait Element: Default + Clone + PartialEq + 'static {
     type Child: NodeChild + Clone + PartialEq;
 
     fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>);
 
-    fn draw(&self, _context: DrawContext) {}
     fn create_layout_opts(&self) -> LayoutOptions;
+
+    fn paint(&self) -> Option<PaintDetails> {
+        None
+    }
 }
 
 pub trait NodeChild: 'static {
-    fn draw(&self, context: DrawContext);
+    fn paint(&self) -> Option<PaintDetails>;
     fn create_layout_opts(&self) -> LayoutOptions;
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild>;
 }
@@ -55,8 +47,8 @@ impl<Elt> NodeChild for Node<Elt>
 where
     Elt: Element,
 {
-    fn draw(&self, context: DrawContext) {
-        Element::draw(self.element(), context);
+    fn paint(&self) -> Option<PaintDetails> {
+        Element::paint(self.element())
     }
 
     fn create_layout_opts(&self) -> LayoutOptions {
@@ -73,10 +65,18 @@ where
 }
 
 impl NodeChild for String {
-    fn draw(&self, _context: DrawContext) {}
+    fn paint(&self) -> Option<PaintDetails> {
+        Some(PaintDetails {
+            text: Some(self.clone()),
+            ..Default::default()
+        })
+    }
 
     fn create_layout_opts(&self) -> LayoutOptions {
-        panic!()
+        LayoutOptions {
+            text: Some(self.clone()),
+            ..Default::default()
+        }
     }
 
     fn get_child(&self, _child: usize) -> Option<&dyn NodeChild> {

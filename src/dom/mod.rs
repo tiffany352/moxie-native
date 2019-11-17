@@ -4,7 +4,7 @@ pub mod span;
 pub mod view;
 pub mod window;
 
-pub use element::{DrawContext, Element, NodeChild};
+pub use element::{Element, NodeChild};
 pub use node::Node;
 pub use span::Span;
 pub use view::View;

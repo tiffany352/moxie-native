@@ -1,12 +1,8 @@
-use super::{DrawContext, Element, Node, NodeChild, Span};
+use super::{Element, Node, NodeChild, Span};
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
+use crate::render::PaintDetails;
 use crate::Color;
-use euclid::Rect;
 use std::borrow::Cow;
-use webrender::api::{
-    BorderRadius, ClipMode, ColorF, CommonItemProperties, ComplexClipRegion, SpaceAndClipInfo,
-    SpatialId,
-};
 
 #[derive(Default, Clone, PartialEq)]
 pub struct View {
@@ -69,10 +65,10 @@ impl From<Node<Span>> for ViewChild {
 }
 
 impl NodeChild for ViewChild {
-    fn draw(&self, context: DrawContext) {
+    fn paint(&self) -> Option<PaintDetails> {
         match self {
-            ViewChild::View(view) => view.draw(context),
-            ViewChild::Span(span) => span.draw(context),
+            ViewChild::View(view) => view.paint(),
+            ViewChild::Span(span) => span.paint(),
         }
     }
 
@@ -117,35 +113,11 @@ impl Element for View {
         }
     }
 
-    fn draw(&self, context: DrawContext) {
-        let rect = Rect::new(context.position, context.size);
-        let region = ComplexClipRegion::new(
-            rect * context.scale,
-            BorderRadius::uniform(20.),
-            ClipMode::Clip,
-        );
-        let clip = context.builder.define_clip(
-            &SpaceAndClipInfo::root_scroll(context.pipeline_id),
-            rect * context.scale,
-            vec![region],
-            None,
-        );
-        let color = self.color.unwrap_or(Color::new(50, 180, 200, 255));
-        context.builder.push_rect(
-            &CommonItemProperties::new(
-                rect * context.scale,
-                SpaceAndClipInfo {
-                    spatial_id: SpatialId::root_scroll_node(context.pipeline_id),
-                    clip_id: clip,
-                },
-            ),
-            ColorF::new(
-                color.red as f32 / 255.0,
-                color.green as f32 / 255.0,
-                color.blue as f32 / 255.0,
-                color.alpha as f32 / 255.0,
-            ),
-        );
+    fn paint(&self) -> Option<PaintDetails> {
+        Some(PaintDetails {
+            background_color: Some(self.color.unwrap_or(Color::new(50, 180, 200, 255))),
+            ..Default::default()
+        })
     }
 
     fn create_layout_opts(&self) -> LayoutOptions {
