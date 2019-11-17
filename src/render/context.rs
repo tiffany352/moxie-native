@@ -207,7 +207,9 @@ impl Context {
             }
 
             if let Some(ref text) = details.text {
-                println!("paint text {}", text);
+                let range = layout.render_text.clone().unwrap_or(0..text.len());
+                println!("len:{} start:{} end:{}", text.len(), range.start, range.end);
+                println!("plain text {}", &text[range.clone()]);
                 let size = 32.0;
                 let mut collection = FontCollection::new();
                 let source = SystemSource::new();
@@ -226,7 +228,7 @@ impl Context {
                     space_and_clip.spatial_id,
                     PrimitiveFlags::IS_BACKFACE_VISIBLE,
                 );
-                for run in layout.iter_substr(0..text.len()) {
+                for run in layout.iter_substr(range) {
                     let font = run.font();
                     let mut glyphs = vec![];
                     for glyph in run.glyphs() {
@@ -254,7 +256,8 @@ impl Context {
             }
         }
 
-        for (paint, layout) in paint.children.iter().zip(layout.children.iter()) {
+        for layout in &layout.children {
+            let paint = &paint.children[layout.index];
             self.render_child(
                 pipeline_id,
                 builder,
@@ -269,7 +272,7 @@ impl Context {
     pub fn render(&mut self) {
         let client_size = self.client_size;
         let dpi_scale = Scale::new(self.dpi_scale);
-        let content_size = client_size.to_f32() * dpi_scale;
+        let content_size = client_size.to_f32() / dpi_scale;
 
         println!("render()");
         self.visual.as_mut().unwrap().make_current();
@@ -285,7 +288,8 @@ impl Context {
             .render_engine
             .render(self.window.clone(), root_layout.clone());
 
-        for (details, layout) in root_paint.children.iter().zip(root_layout.children.iter()) {
+        for layout in &root_layout.children {
+            let details = &root_paint.children[layout.index];
             self.render_child(
                 pipeline_id,
                 &mut builder,

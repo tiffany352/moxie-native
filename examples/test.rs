@@ -13,6 +13,7 @@ fn foo() -> Vec<Node<Window>> {
                 <span>
                     "as" "df"
                     " foo bar baz"
+                    " the quick brown fox jumps over the lazy dog"
                 </span>
                 <view color="255,0,0,255" width="200" height="200"></view>
                 <view color="0,255,0,255" width="250" height="150"></view>

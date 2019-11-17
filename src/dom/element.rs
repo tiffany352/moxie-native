@@ -1,5 +1,5 @@
 use super::{EventHandler, Node};
-use crate::layout::LayoutOptions;
+use crate::layout::{LayoutOptions, LayoutType};
 use crate::render::PaintDetails;
 use std::borrow::Cow;
 
@@ -83,7 +83,7 @@ impl NodeChild for String {
 
     fn create_layout_opts(&self) -> LayoutOptions {
         LayoutOptions {
-            text: Some(self.clone()),
+            layout_ty: LayoutType::Text(self.clone()),
             ..Default::default()
         }
     }
