@@ -1,7 +1,7 @@
 use super::engine::{PaintTreeNode, RenderEngine};
 use crate::direct_composition::{AngleVisual, DirectComposition};
 use crate::dom::{Node, Window};
-use crate::layout::{LayoutEngine, LayoutTreeNode, LogicalPixel};
+use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -206,11 +206,8 @@ impl Context {
                 );
             }
 
-            if let Some(ref text) = details.text {
-                let range = layout.render_text.clone().unwrap_or(0..text.len());
-                println!("len:{} start:{} end:{}", text.len(), range.start, range.end);
-                println!("plain text {}", &text[range.clone()]);
-                let size = 32.0;
+            if let Some(LayoutText { ref text, size }) = layout.render_text {
+                println!("plain text {}", text);
                 let mut collection = FontCollection::new();
                 let source = SystemSource::new();
                 let font = source
@@ -228,11 +225,14 @@ impl Context {
                     space_and_clip.spatial_id,
                     PrimitiveFlags::IS_BACKFACE_VISIBLE,
                 );
-                for run in layout.iter_substr(range) {
+                for run in layout.iter_substr(0..text.len()) {
                     let font = run.font();
+                    let metrics = font.font.metrics();
+                    let units_per_px = metrics.units_per_em as f32 / size;
+                    let baseline_offset = metrics.ascent / units_per_px;
                     let mut glyphs = vec![];
                     for glyph in run.glyphs() {
-                        let pos = position + vec2(glyph.offset.x, glyph.offset.y + size);
+                        let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
                         println!("glyph id:{} pos:{}", glyph.glyph_id, pos);
                         glyphs.push(GlyphInstance {
                             index: glyph.glyph_id,

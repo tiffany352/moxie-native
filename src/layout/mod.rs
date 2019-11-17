@@ -6,7 +6,6 @@ use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
 use moxie::*;
 use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
-use std::ops::Range;
 use std::ptr;
 use std::rc::Rc;
 
@@ -30,6 +29,7 @@ pub struct LayoutOptions {
     pub padding: LogicalSideOffsets,
     pub width: Option<LogicalLength>,
     pub height: Option<LogicalLength>,
+    pub text_size: LogicalLength,
     pub layout_ty: LayoutType,
 }
 
@@ -39,6 +39,7 @@ impl Default for LayoutOptions {
             padding: LogicalSideOffsets::new_all_same(0.0f32),
             width: None,
             height: None,
+            text_size: LogicalLength::new(16.0),
             layout_ty: LayoutType::List,
         }
     }
@@ -50,15 +51,21 @@ pub struct LayoutChild {
     pub layout: Rc<LayoutTreeNode>,
 }
 
+pub struct LayoutText {
+    pub text: String,
+    pub size: f32,
+}
+
 pub struct LayoutTreeNode {
     pub size: LogicalSize,
-    pub render_text: Option<Range<usize>>,
+    pub render_text: Option<LayoutText>,
     pub children: Vec<LayoutChild>,
 }
 
 #[derive(Clone)]
 struct TextLayoutInfo {
     text: String,
+    size: f32,
     max_width: f32,
 }
 
@@ -75,33 +82,39 @@ impl TextLayoutInfo {
     }
 
     #[topo::from_env(collection: &Rc<FontCollection>)]
-    fn fill_line(&self, width: f32, offset: usize) -> (usize, f32) {
-        let mut session = LayoutSession::create(&self.text, &TextStyle { size: 32.0 }, collection);
+    fn fill_line(&self, width: f32, offset: usize) -> (usize, f32, f32) {
+        let mut session =
+            LayoutSession::create(&self.text, &TextStyle { size: self.size }, collection);
 
         let mut x = 0.0;
+        let mut height = 0.0f32;
         let mut last_word_end = 0;
         let mut last_word_x = 0.0;
+        let mut last_word_height = 0.0;
         for word in word_break_iter::WordBreakIterator::new(&self.text[offset..]) {
             let start = word.as_ptr() as usize - self.text.as_ptr() as usize;
             let end = start + word.len();
             for run in session.iter_substr(start..end) {
                 let font = run.font();
                 let metrics = font.font.metrics();
-                let units_per_px = metrics.units_per_em as f32 / 32.0;
+                let units_per_px = metrics.units_per_em as f32 / self.size;
+                let line_height = (metrics.ascent - metrics.descent) / units_per_px;
                 for glyph in run.glyphs() {
                     let new_x = glyph.offset.x
                         + font.font.advance(glyph.glyph_id).unwrap().x / units_per_px;
                     if last_word_x + new_x > width {
-                        return (last_word_end, last_word_x);
+                        return (last_word_end, last_word_x, last_word_height);
                     }
                     x = last_word_x + new_x;
+                    height = height.max(line_height);
                 }
             }
             last_word_end = end - offset;
             last_word_x = x;
+            last_word_height = height;
         }
 
-        (last_word_end, last_word_x)
+        (last_word_end, last_word_x, last_word_height)
     }
 }
 
@@ -115,9 +128,9 @@ impl UnresolvedLayout {
                 let mut longest_line_width = 0.0f32;
                 let len = text.text.len();
                 while offset < len {
-                    let (end, width) = text.fill_line(text.max_width, offset);
+                    let (end, width, line_height) = text.fill_line(text.max_width, offset);
                     longest_line_width = longest_line_width.max(width);
-                    height += 32.0;
+                    height += line_height;
                     offset += end;
                 }
                 let size = size2(longest_line_width, height);
@@ -190,6 +203,7 @@ impl LayoutEngine {
             LayoutType::Text(ref text) => {
                 return UnresolvedLayout::Text(TextLayoutInfo {
                     text: text.clone(),
+                    size: opts.text_size.get(),
                     max_width: max_size.width,
                 })
             }
@@ -221,7 +235,8 @@ impl LayoutEngine {
                             let mut offset = 0;
                             while offset < text.text.len() {
                                 let remaining = max_size.width - x;
-                                let (end, mut width) = text.fill_line(remaining, offset);
+                                let (end, mut width, mut this_line_height) =
+                                    text.fill_line(remaining, offset);
                                 let mut start = offset;
                                 offset += end;
                                 if end == 0 {
@@ -231,14 +246,18 @@ impl LayoutEngine {
                                     line_height = 0.0;
                                     offset = text.advance_past_whitespace(offset);
                                     start = offset;
-                                    let (end, new_width) = text.fill_line(max_size.width, offset);
+                                    let (end, new_width, new_line_height) =
+                                        text.fill_line(max_size.width, offset);
                                     width = new_width;
+                                    this_line_height = new_line_height;
                                     offset += end;
                                     if end == 0 {
                                         // overflow
-                                        let (end, new_width) = text.fill_line(99999999.0, offset);
+                                        let (end, new_width, new_line_height) =
+                                            text.fill_line(99999999.0, offset);
                                         offset += end;
                                         width = new_width;
+                                        this_line_height = new_line_height;
                                     }
                                 }
 
@@ -249,13 +268,16 @@ impl LayoutEngine {
                                         opts.padding.top + height,
                                     ),
                                     layout: Rc::new(LayoutTreeNode {
-                                        render_text: Some(start..offset),
-                                        size: size2(width, 32.0),
+                                        render_text: Some(LayoutText {
+                                            text: text.text[start..offset].to_owned(),
+                                            size: text.size,
+                                        }),
+                                        size: size2(width, this_line_height),
                                         children: vec![],
                                     }),
                                 });
                                 x += width;
-                                line_height = line_height.max(32.0);
+                                line_height = line_height.max(this_line_height);
                             }
                         }
                     }
