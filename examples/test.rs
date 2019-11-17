@@ -1,8 +1,6 @@
-#[macro_use]
-extern crate ui_lib;
-
-use moxie::*;
-use ui_lib::dom::*;
+use moxie_native::dom::*;
+use moxie_native::moxie::*;
+use moxie_native::*;
 
 #[topo::nested]
 fn foo() -> Vec<Node<Window>> {
@@ -36,6 +34,6 @@ fn foo() -> Vec<Node<Window>> {
 }
 
 fn main() {
-    let runtime = ui_lib::Runtime::new(|| foo!());
+    let runtime = moxie_native::Runtime::new(|| foo!());
     runtime.start();
 }

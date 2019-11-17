@@ -8,6 +8,8 @@ use winit::{
     window::{Window as WinitWindow, WindowBuilder, WindowId},
 };
 
+/// Wrapper around a `winit::Window` and a `Context` for rendering the
+/// DOM.
 pub struct Window {
     winit_window: WinitWindow,
     context: Context,

@@ -6,6 +6,8 @@ use crate::Color;
 use moxie::embed::Runtime;
 use std::rc::Rc;
 
+/// Contains information needed to display an element, and also event
+/// handlers for processing input.
 #[derive(Default)]
 pub struct PaintDetails {
     pub background_color: Option<Color>,
@@ -13,11 +15,17 @@ pub struct PaintDetails {
     pub on_click: EventHandler<ClickEvent>,
 }
 
+/// A node in the paint tree, which corresponds 1:1 to the DOM.
 pub struct PaintTreeNode {
+    /// Not all nodes are visible, so not all have associated paint
+    /// information. Stores an Rc pointer for caching.
     pub details: Option<Rc<PaintDetails>>,
+    /// Children are stored directly since caching of the tree nodes is
+    /// not necessary.
     pub children: Vec<PaintTreeNode>,
 }
 
+/// Persistent structure for building the paint tree.
 pub struct RenderEngine {
     runtime: Runtime<fn() -> PaintTreeNode, PaintTreeNode>,
 }

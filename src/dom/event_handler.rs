@@ -21,6 +21,9 @@ where
     }
 }
 
+/// Represents the callback attached to an event. Allows the handler to
+/// be more easily passed around and invoked than directly storing a
+/// boxed FnMut.
 pub struct EventHandler<Event>(Option<Rc<dyn Handler<Event>>>);
 
 impl<Event> EventHandler<Event> {

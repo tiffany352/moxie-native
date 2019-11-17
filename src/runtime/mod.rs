@@ -10,6 +10,7 @@ use winit::{
 
 mod window;
 
+/// Contains the event loop and the root component of the application.
 pub struct Runtime {
     moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Vec<Node<Window>> + 'static>, Vec<Node<Window>>>,
     windows: HashMap<WindowId, window::Window>,
@@ -18,6 +19,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Create a new runtime based on the application's root component.
     pub fn new(mut root: impl FnMut() -> Vec<Node<Window>> + 'static) -> Runtime {
         Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || topo::call!({ root() }))),
@@ -27,6 +29,7 @@ impl Runtime {
         }
     }
 
+    /// Handle events
     fn process(
         &mut self,
         event: Event<()>,
@@ -47,6 +50,8 @@ impl Runtime {
         }
     }
 
+    /// Updates the moxie runtime and reconciles the DOM changes,
+    /// re-rendering if things have changed.
     fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
         let windows = self.moxie_runtime.run_once();
 
@@ -85,6 +90,7 @@ impl Runtime {
         }
     }
 
+    /// Start up the application.
     pub fn start(mut self) {
         let event_loop = EventLoop::new();
 

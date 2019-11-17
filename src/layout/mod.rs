@@ -1,3 +1,6 @@
+//! This module handles creating the layout tree, which includes
+//! arranging elements and performing text layout.
+
 use crate::dom::{element::children as get_children, Node, NodeChild, Window};
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
@@ -17,13 +20,18 @@ pub type LogicalSize = Size2D<f32, LogicalPixel>;
 pub type LogicalLength = Length<f32, LogicalPixel>;
 pub type LogicalSideOffsets = SideOffsets2D<f32, LogicalPixel>;
 
+/// Which type of layout the given element should arrange its children
+/// using.
 #[derive(PartialEq)]
 pub enum LayoutType {
     List,
     Inline,
+    /// Text layout is special because a parent Inline layout can break
+    /// it into multiple pieces.
     Text(String),
 }
 
+/// Options that are passed to the layout engine from each element.
 #[derive(PartialEq)]
 pub struct LayoutOptions {
     pub padding: LogicalSideOffsets,
@@ -45,18 +53,27 @@ impl Default for LayoutOptions {
     }
 }
 
+/// Each edge of the layout tree contains information on the positions
+/// of the child elements, since elements are positioned relative to
+/// their parents, and the position is assigned by the parent.
 pub struct LayoutChild {
+    /// Child index of the DOM node this child is associated with.
     pub index: usize,
     pub position: LogicalPoint,
     pub layout: Rc<LayoutTreeNode>,
 }
 
+/// Information passed to the renderer for rendering text.
 pub struct LayoutText {
+    /// A piece of the text. This corresponds to roughly one line of text, but not always.
     pub text: String,
+    /// The text size of the text.
     pub size: f32,
 }
 
+/// One node in the layout tree, which corresponds n:1 with DOM nodes.
 pub struct LayoutTreeNode {
+    /// The computed size of the node.
     pub size: LogicalSize,
     pub render_text: Option<LayoutText>,
     pub children: Vec<LayoutChild>,
@@ -69,6 +86,8 @@ struct TextLayoutInfo {
     max_width: f32,
 }
 
+/// Lets the layout engine pass information back up the tree to a parent
+/// LayoutType=Inline which can do line breaking of text.
 #[derive(Clone)]
 enum UnresolvedLayout {
     Resolved(Rc<LayoutTreeNode>),
@@ -170,6 +189,8 @@ impl PartialEq for LayoutInputs {
     }
 }
 
+/// Used to build the layout tree, with internal caching for
+/// performance.
 pub struct LayoutEngine {
     runtime: Runtime<fn() -> Rc<LayoutTreeNode>, Rc<LayoutTreeNode>>,
 }
@@ -383,6 +404,8 @@ impl LayoutEngine {
         )
     }
 
+    /// Perform a layout step based on the new DOM and content size, and
+    /// return a fresh layout tree.
     pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
         topo::call!(
             { self.runtime.run_once() },

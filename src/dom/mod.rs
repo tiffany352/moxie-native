@@ -1,3 +1,7 @@
+//! This module defines the main part of how applications interact with
+//! moxie-native. It implements the DOM hierarchy which is used to
+//! represent the UI.
+
 pub mod button;
 pub mod element;
 pub mod event_handler;
@@ -16,6 +20,8 @@ pub use span::Span;
 pub use view::View;
 pub use window::Window;
 
+/// Defines an enum over multiple types that implement NodeChild and
+/// then implements NodeChild for that enum.
 #[macro_export]
 macro_rules! multiple_children {
     (enum $name:ident { $( $var_name:ident ( $var_ty:ty ) ),+ $(,)* }) => {

@@ -1,6 +1,7 @@
 use std::fmt;
 use webrender::api::ColorF;
 
+/// Represents an 8-bit RGBA color in sRGB color space.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Color {
     pub red: u8,
@@ -31,6 +32,7 @@ impl Color {
         Color::new(0, 0, 0, 255)
     }
 
+    // Parse a color from `R,G,B` or `R,G,B,A` format.
     pub fn parse(string: &str) -> Result<Color, ()> {
         let components = string
             .split(',')
@@ -62,6 +64,8 @@ impl Into<ColorF> for Color {
     }
 }
 
+/// Displays the color using either `rgb(R, G, B)` or `rgba(R, G, B, A)`
+/// format.
 impl fmt::Display for Color {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         if self.alpha == 255 {

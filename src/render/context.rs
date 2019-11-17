@@ -27,6 +27,7 @@ use winit::{
     window::Window as WinitWindow,
 };
 
+/// Used to wait for frames to be ready in Webrender.
 #[derive(Clone)]
 struct Notifier {
     events_proxy: EventLoopProxy<()>,
@@ -48,6 +49,11 @@ impl RenderNotifier for Notifier {
     }
 }
 
+/// Contains everything needed to display the DOM. It creates an
+/// Angle-based GL context, a Webrender rendering context, and manages
+/// the `LayoutEngine` and `RenderEngine` for creating the DOM's layout
+/// and paint trees. It handles bubbling input events through the DOM as
+/// well.
 pub struct Context {
     composition: DirectComposition,
     visual: Option<AngleVisual>,

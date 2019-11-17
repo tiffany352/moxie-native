@@ -23,6 +23,7 @@ where
     }
 }
 
+/// Typed handle to a DOM node.
 #[derive(Clone)]
 pub struct Node<Elt: Element>(Rc<NodeData<Elt>>);
 
@@ -30,14 +31,17 @@ impl<Elt> Node<Elt>
 where
     Elt: Element,
 {
+    /// Create a new DOM node from the given element and children vector.
     pub fn new(element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
         Node(Rc::new(NodeData::new(element, children)))
     }
 
+    /// Returns a reference to the children vector.
     pub fn children(&self) -> &[Elt::Child] {
         &self.0.children[..]
     }
 
+    /// Returns a reference to the element representing this node.
     pub fn element(&self) -> &Elt {
         &self.0.element
     }

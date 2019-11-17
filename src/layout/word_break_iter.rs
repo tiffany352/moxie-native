@@ -1,6 +1,10 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
+/// An iterator over word breaks. It leaves whitespace in, which
+/// distinguishes it from `str::split_whitespace()`, leaving it at the
+/// start of each item produced. This will also eventually insert break
+/// points between CJK characters, as spaces are not common.
 pub struct WordBreakIterator<'a> {
     string: &'a str,
     iter: Peekable<CharIndices<'a>>,

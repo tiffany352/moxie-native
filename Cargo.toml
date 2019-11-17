@@ -1,5 +1,5 @@
 [package]
-name = "ui-lib"
+name = "moxie-native"
 version = "0.1.0"
 authors = ["Tiffany Bennett <tiffnixen@gmail.com>"]
 edition = "2018"
