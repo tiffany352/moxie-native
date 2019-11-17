@@ -152,16 +152,18 @@ impl LayoutEngine {
         if let Some(ref text) = opts.text {
             let mut session = LayoutSession::create(text, &TextStyle { size: 32.0 }, collection);
 
-            let mut last_offset = 0.0;
+            let mut width = 0.0;
             for run in session.iter_substr(0..text.len()) {
+                let font = run.font();
+                let metrics = font.font.metrics();
+                let units_per_px = metrics.units_per_em / 32;
                 for glyph in run.glyphs() {
-                    last_offset = glyph.offset.x;
+                    width = glyph.offset.x
+                        + font.font.advance(glyph.glyph_id).unwrap().x / units_per_px as f32;
                 }
             }
-            // No access to xadvance yet
-            last_offset += 20.0;
 
-            min_size = size2(last_offset, 32.0);
+            min_size = size2(width, 32.0);
         }
 
         let mut outer = min_size + size2(opts.padding.horizontal(), opts.padding.vertical());
