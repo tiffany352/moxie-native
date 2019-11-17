@@ -182,12 +182,10 @@ impl Context {
         paint: &PaintTreeNode,
         layout: &Rc<LayoutTreeNode>,
     ) {
-        println!("paint child {}", position);
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
         if let Some(ref details) = paint.details {
             if let Some(color) = details.background_color {
-                println!("paint rect {}", color);
                 let region =
                     ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
                 let clip = builder.define_clip(

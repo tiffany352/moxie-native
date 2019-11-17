@@ -16,11 +16,18 @@ pub type LogicalLength = Length<f32, LogicalPixel>;
 pub type LogicalSideOffsets = SideOffsets2D<f32, LogicalPixel>;
 
 #[derive(PartialEq)]
+pub enum LayoutType {
+    List,
+    Inline,
+}
+
+#[derive(PartialEq)]
 pub struct LayoutOptions {
     pub padding: LogicalSideOffsets,
     pub width: Option<LogicalLength>,
     pub height: Option<LogicalLength>,
     pub text: Option<String>,
+    pub layout_ty: LayoutType,
 }
 
 impl Default for LayoutOptions {
@@ -30,6 +37,7 @@ impl Default for LayoutOptions {
             width: None,
             height: None,
             text: None,
+            layout_ty: LayoutType::List,
         }
     }
 }
@@ -46,12 +54,16 @@ pub struct LayoutTreeNode {
 
 struct LayoutInputs {
     opts: LayoutOptions,
+    max_size: LogicalSize,
     children: Vec<Rc<LayoutTreeNode>>,
 }
 
 impl PartialEq for LayoutInputs {
     fn eq(&self, other: &LayoutInputs) -> bool {
         if self.opts != other.opts {
+            return false;
+        }
+        if self.max_size != other.max_size {
             return false;
         }
         if self.children.len() != other.children.len() {
@@ -88,29 +100,71 @@ impl LayoutEngine {
         outer - size2(opts.padding.horizontal(), opts.padding.vertical())
     }
 
+    #[topo::from_env(collection: &Rc<FontCollection>)]
     fn calc_layout(input: &LayoutInputs) -> Rc<LayoutTreeNode> {
         let opts = &input.opts;
         let children = &input.children;
+        let max_size = input.max_size;
 
-        let mut width = 0.0f32;
-        let mut height = 0.0f32;
         let mut child_positions = vec![];
         child_positions.reserve(children.len());
-        for child in children {
-            let size = child.size;
-            width = width.max(size.width);
-            child_positions.push(LayoutChild {
-                position: point2(opts.padding.left, height + opts.padding.top),
-                layout: child.clone(),
-            });
-            height += size.height;
+        let mut min_size = match opts.layout_ty {
+            LayoutType::List => {
+                let mut width = 0.0f32;
+                let mut height = 0.0f32;
+                for child in children {
+                    let size = child.size;
+                    width = width.max(size.width);
+                    let size = child.size;
+                    child_positions.push(LayoutChild {
+                        position: point2(opts.padding.left, height + opts.padding.top),
+                        layout: child.clone(),
+                    });
+                    height += size.height;
+                }
+                size2(width, height)
+            }
+            LayoutType::Inline => {
+                let max_size = max_size - size2(opts.padding.horizontal(), opts.padding.vertical());
+                let mut x = 0.0f32;
+                let mut height = 0.0f32;
+                let mut line_height = 0.0f32;
+                let mut longest_line = 0.0f32;
+                for child in children {
+                    let size = child.size;
+                    if x + size.width > max_size.width {
+                        height += line_height;
+                        longest_line = longest_line.max(x);
+                        x = 0.0;
+                        line_height = 0.0;
+                    }
+                    child_positions.push(LayoutChild {
+                        position: point2(opts.padding.left + x, opts.padding.top + height),
+                        layout: child.clone(),
+                    });
+                    x += size.width;
+                    line_height = line_height.max(size.height);
+                }
+                size2(longest_line.max(x), height.max(line_height))
+            }
+        };
+
+        if let Some(ref text) = opts.text {
+            let mut session = LayoutSession::create(text, &TextStyle { size: 32.0 }, collection);
+
+            let mut last_offset = 0.0;
+            for run in session.iter_substr(0..text.len()) {
+                for glyph in run.glyphs() {
+                    last_offset = glyph.offset.x;
+                }
+            }
+            // No access to xadvance yet
+            last_offset += 20.0;
+
+            min_size = size2(last_offset, 32.0);
         }
-        if let Some(_) = opts.text {
-            width = 200.0;
-            height = 50.0;
-        }
-        let mut outer =
-            size2(width, height) + size2(opts.padding.horizontal(), opts.padding.vertical());
+
+        let mut outer = min_size + size2(opts.padding.horizontal(), opts.padding.vertical());
         if let Some(width) = opts.width {
             outer.width = width.get();
         }
@@ -133,7 +187,14 @@ impl LayoutEngine {
                 children.push(Self::layout_child(child, max_size));
             }
 
-            moxie::memo!(LayoutInputs { children, opts }, Self::calc_layout)
+            moxie::memo!(
+                LayoutInputs {
+                    children,
+                    opts,
+                    max_size
+                },
+                Self::calc_layout
+            )
         })
     }
 

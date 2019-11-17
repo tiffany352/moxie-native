@@ -1,18 +1,8 @@
 use super::Element;
-use crate::layout::LayoutOptions;
+use crate::layout::{LayoutOptions, LayoutType};
 use crate::render::PaintDetails;
 use crate::Color;
 use std::borrow::Cow;
-/*use euclid::{point2, vec2, Rect};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
-use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
-use std::cell::Cell;
-use webrender::api::{
-    units::Au, BorderRadius, ClipMode, ColorF, CommonItemProperties, ComplexClipRegion,
-    FontInstanceKey, GlyphInstance, PrimitiveFlags, SpaceAndClipInfo, SpatialId,
-};*/
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Span {
@@ -57,6 +47,7 @@ impl Element for Span {
 
     fn create_layout_opts(&self) -> LayoutOptions {
         LayoutOptions {
+            layout_ty: LayoutType::Inline,
             ..Default::default()
         }
     }
