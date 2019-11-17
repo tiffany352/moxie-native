@@ -1,4 +1,4 @@
-use super::Node;
+use super::{EventHandler, Node};
 use crate::layout::LayoutOptions;
 use crate::render::PaintDetails;
 use std::borrow::Cow;
@@ -13,6 +13,15 @@ pub trait Element: Default + Clone + PartialEq + 'static {
     fn paint(&self) -> Option<PaintDetails> {
         None
     }
+}
+
+pub trait Event {}
+
+pub trait CanSetEvent<Ev>
+where
+    Ev: Event,
+{
+    fn set_handler(&mut self, handler: EventHandler<Ev>);
 }
 
 pub trait NodeChild: 'static {

@@ -9,15 +9,7 @@ impl Window {
     pub fn new() -> Window {
         Window {}
     }
-
-    pub fn on<Event>(&mut self, _func: impl FnMut(&Event) + 'static)
-    where
-        Event: WindowEvent,
-    {
-    }
 }
-
-pub trait WindowEvent {}
 
 impl Element for Window {
     type Child = Node<View>;

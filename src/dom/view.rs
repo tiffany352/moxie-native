@@ -1,4 +1,4 @@
-use super::{Element, Node, NodeChild, Span};
+use super::{CanSetEvent, Element, Event, EventHandler, Node, NodeChild, Span};
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::render::PaintDetails;
 use crate::Color;
@@ -11,38 +11,16 @@ pub struct View {
     width: Option<f32>,
     height: Option<f32>,
     padding: Option<f32>,
-    //on_test_event: Option<Rc<dyn FnMut(&TestEvent) + 'static>>,
-}
-
-impl View {
-    pub fn new() -> View {
-        View {
-            class_name: None,
-            color: None,
-            width: None,
-            height: None,
-            padding: None,
-            //on_test_event: None,
-        }
-    }
-
-    pub fn on<Event>(&mut self, func: impl FnMut(&Event) + 'static)
-    where
-        Event: ViewEvent,
-    {
-        Event::set_to_view(self, func);
-    }
-}
-
-pub trait ViewEvent {
-    fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static);
+    on_test: EventHandler<TestEvent>,
 }
 
 pub struct TestEvent;
 
-impl ViewEvent for TestEvent {
-    fn set_to_view(view: &mut View, func: impl FnMut(&Self) + 'static) {
-        //view.on_test_event = Some(Box::new(func));
+impl Event for TestEvent {}
+
+impl CanSetEvent<TestEvent> for View {
+    fn set_handler(&mut self, handler: EventHandler<TestEvent>) {
+        self.on_test = handler;
     }
 }
 

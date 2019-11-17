@@ -1,4 +1,4 @@
-use crate::dom::{Element, Node};
+use crate::dom::{CanSetEvent, Element, Event, EventHandler, Node};
 use moxie::*;
 
 pub struct Builder<Elt: Element> {
@@ -25,6 +25,17 @@ where
         topo::call!({
             self.element
                 .set_attribute(key, Some(value.to_owned().into()));
+        });
+        self
+    }
+
+    pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
+    where
+        E: Event,
+        Elt: CanSetEvent<E>,
+    {
+        topo::call!({
+            self.element.set_handler(EventHandler::with_func(func));
         });
         self
     }

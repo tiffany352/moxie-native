@@ -17,17 +17,6 @@ impl Span {
             color: None,
         }
     }
-
-    pub fn on<Event>(&mut self, func: impl FnMut(&Event) + 'static)
-    where
-        Event: SpanEvent,
-    {
-        Event::set_to_span(self, func);
-    }
-}
-
-pub trait SpanEvent {
-    fn set_to_span(span: &mut Span, func: impl FnMut(&Self) + 'static);
 }
 
 impl Element for Span {

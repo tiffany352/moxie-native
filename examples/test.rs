@@ -2,13 +2,14 @@
 extern crate ui_lib;
 
 use moxie::*;
+use ui_lib::dom::view::TestEvent;
 use ui_lib::dom::*;
 
 #[topo::nested]
 fn foo() -> Vec<Node<Window>> {
     vec![mox! {
         <window>
-            <view padding="10">
+            <view padding="10" on={|_:&TestEvent| ()}>
                 <span>
                     "asdf"
                     "foo bar baz"
