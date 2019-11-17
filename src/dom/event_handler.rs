@@ -39,6 +39,10 @@ impl<Event> EventHandler<Event> {
             handler.invoke(event);
         }
     }
+
+    pub fn present(&self) -> bool {
+        self.0.is_some()
+    }
 }
 
 impl<Event> Default for EventHandler<Event> {

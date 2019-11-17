@@ -1,8 +1,9 @@
 use crate::dom::{Node, Window as DomWindow};
 use crate::render::Context;
 use winit::{
-    event::WindowEvent,
-    event_loop::EventLoop,
+    dpi::LogicalPosition,
+    event::{ElementState, MouseButton, WindowEvent},
+    event_loop::{EventLoopProxy, EventLoopWindowTarget},
     platform::windows::WindowBuilderExtWindows,
     window::{Window as WinitWindow, WindowBuilder, WindowId},
 };
@@ -10,10 +11,15 @@ use winit::{
 pub struct Window {
     winit_window: WinitWindow,
     context: Context,
+    cursor_pos: LogicalPosition,
 }
 
 impl Window {
-    pub fn new(dom_window: Node<DomWindow>, event_loop: &EventLoop<()>) -> Window {
+    pub fn new(
+        dom_window: Node<DomWindow>,
+        event_loop: &EventLoopWindowTarget<()>,
+        proxy: EventLoopProxy<()>,
+    ) -> Window {
         let winit_window = WindowBuilder::new()
             .with_title("UI Lib")
             .with_decorations(true)
@@ -22,12 +28,13 @@ impl Window {
             .build(event_loop)
             .unwrap();
 
-        let mut context = Context::new(&winit_window, event_loop, dom_window);
+        let mut context = Context::new(&winit_window, proxy, dom_window);
         context.render();
 
         Window {
             winit_window,
             context,
+            cursor_pos: LogicalPosition::new(0.0, 0.0),
         }
     }
 
@@ -39,7 +46,11 @@ impl Window {
         self.context.set_dom_window(new_node)
     }
 
-    pub fn process(&mut self, event: WindowEvent) {
+    pub fn render(&mut self) {
+        self.context.render();
+    }
+
+    pub fn process(&mut self, event: WindowEvent) -> bool {
         match event {
             WindowEvent::RedrawRequested => {
                 self.context.render();
@@ -50,7 +61,16 @@ impl Window {
                 self.context.resize(size.to_physical(factor), factor as f32);
                 self.context.render();
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_pos = position;
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                if state == ElementState::Pressed && button == MouseButton::Left {
+                    return self.context.process_click(self.cursor_pos);
+                }
+            }
             _ => (),
         }
+        false
     }
 }

@@ -77,6 +77,14 @@ macro_rules! view {
     };
 }
 
+/// An interactible button
+#[macro_export]
+macro_rules! button {
+    ($with_elem:expr) => {
+        $crate::moxie::elements::Builder::<$crate::dom::Button>::create($with_elem)
+    };
+}
+
 /// Container for inline text
 #[macro_export]
 macro_rules! span {

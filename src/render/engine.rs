@@ -1,4 +1,6 @@
-use crate::dom::{element::children as get_children, Node, NodeChild, Window};
+use crate::dom::{
+    element::children as get_children, ClickEvent, EventHandler, Node, NodeChild, Window,
+};
 use crate::layout::LayoutTreeNode;
 use crate::Color;
 use moxie::embed::Runtime;
@@ -8,6 +10,7 @@ use std::rc::Rc;
 pub struct PaintDetails {
     pub background_color: Option<Color>,
     pub text: Option<String>,
+    pub on_click: EventHandler<ClickEvent>,
 }
 
 pub struct PaintTreeNode {

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::iter;
 use winit::{
     event::Event,
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
     window::WindowId,
 };
 
@@ -14,6 +14,7 @@ pub struct Runtime {
     moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Vec<Node<Window>> + 'static>, Vec<Node<Window>>>,
     windows: HashMap<WindowId, window::Window>,
     window_ids: Vec<WindowId>,
+    proxy: Option<EventLoopProxy<()>>,
 }
 
 impl Runtime {
@@ -22,24 +23,31 @@ impl Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || topo::call!({ root() }))),
             windows: HashMap::new(),
             window_ids: vec![],
+            proxy: None,
         }
     }
 
     fn process(
         &mut self,
         event: Event<()>,
-        _target: &EventLoopWindowTarget<()>,
+        target: &EventLoopWindowTarget<()>,
         control_flow: &mut ControlFlow,
     ) {
+        let mut did_process = false;
         match event {
             Event::WindowEvent { event, window_id } => {
-                self.windows.get_mut(&window_id).unwrap().process(event)
+                let window = self.windows.get_mut(&window_id).unwrap();
+                let res = window.process(event);
+                did_process = res;
             }
             _ => *control_flow = ControlFlow::Wait,
         }
+        if did_process {
+            self.update_runtime(target);
+        }
     }
 
-    fn update_runtime(&mut self, event_loop: &EventLoop<()>) {
+    fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
         let windows = self.moxie_runtime.run_once();
 
         let first_iter = windows.into_iter().map(Some).chain(iter::repeat(None));
@@ -54,14 +62,17 @@ impl Runtime {
         for (dom_window, window_id) in first_iter.zip(second_iter) {
             match (dom_window, window_id) {
                 (Some(dom_window), Some(window_id)) => {
-                    self.windows
-                        .get_mut(&window_id)
-                        .unwrap()
-                        .set_dom_window(dom_window);
+                    let window = self.windows.get_mut(&window_id).unwrap();
+                    window.set_dom_window(dom_window);
+                    window.render();
                     self.window_ids.push(window_id);
                 }
                 (Some(dom_window), None) => {
-                    let window = window::Window::new(dom_window, event_loop);
+                    let window = window::Window::new(
+                        dom_window,
+                        event_loop,
+                        self.proxy.as_ref().unwrap().clone(),
+                    );
                     let id = window.window_id();
                     self.windows.insert(id, window);
                     self.window_ids.push(id);
@@ -76,6 +87,8 @@ impl Runtime {
 
     pub fn start(mut self) {
         let event_loop = EventLoop::new();
+
+        self.proxy = Some(event_loop.create_proxy());
 
         self.update_runtime(&event_loop);
 

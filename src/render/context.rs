@@ -1,7 +1,7 @@
 use super::engine::{PaintTreeNode, RenderEngine};
 use crate::direct_composition::{AngleVisual, DirectComposition};
-use crate::dom::{Node, Window};
-use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
+use crate::dom::{ClickEvent, Node, Window};
+use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalPoint};
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -12,17 +12,17 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use webrender::{
     api::{
-        units::Au, units::DeviceIntRect, units::DevicePixel, BorderRadius, ClipMode, ColorF,
-        CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
-        FontInstanceKey, FontKey, GlyphInstance, PipelineId, PrimitiveFlags, RenderApi,
+        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutPixel, BorderRadius,
+        ClipMode, ColorF, CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId,
+        Epoch, FontInstanceKey, FontKey, GlyphInstance, PipelineId, PrimitiveFlags, RenderApi,
         RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
     euclid::{point2, size2, vec2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
 };
 use winit::{
-    dpi::PhysicalSize,
-    event_loop::{EventLoop, EventLoopProxy},
+    dpi::{LogicalPosition as WinitLogicalPosition, PhysicalSize},
+    event_loop::EventLoopProxy,
     platform::windows::WindowExtWindows,
     window::Window as WinitWindow,
 };
@@ -67,14 +67,11 @@ pub struct Context {
 impl Context {
     pub fn new(
         parent_window: &WinitWindow,
-        event_loop: &EventLoop<()>,
+        events_proxy: EventLoopProxy<()>,
         window: Node<Window>,
     ) -> Context {
         let (tx, rx) = mpsc::channel();
-        let notifier = Box::new(Notifier {
-            events_proxy: event_loop.create_proxy(),
-            tx,
-        });
+        let notifier = Box::new(Notifier { events_proxy, tx });
 
         let dpi_scale = parent_window.hidpi_factor() as f32;
         let inner_size = parent_window.inner_size().to_physical(dpi_scale as f64);
@@ -233,7 +230,6 @@ impl Context {
                     let mut glyphs = vec![];
                     for glyph in run.glyphs() {
                         let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
-                        println!("glyph id:{} pos:{}", glyph.glyph_id, pos);
                         glyphs.push(GlyphInstance {
                             index: glyph.glyph_id,
                             point: pos * Scale::new(1.0),
@@ -315,5 +311,60 @@ impl Context {
         let _ = self.renderer.flush_pipeline_info();
         self.visual.as_mut().unwrap().present();
         self.composition.commit();
+    }
+
+    pub fn process_child(
+        &mut self,
+        cursor: LogicalPoint,
+        position: Point2D<f32, LogicalPixel>,
+        paint: &PaintTreeNode,
+        layout: &Rc<LayoutTreeNode>,
+    ) -> bool {
+        let rect = Rect::new(position, layout.size) * Scale::new(1.0);
+
+        for layout in &layout.children {
+            let paint = &paint.children[layout.index];
+            if self.process_child(
+                cursor,
+                position + layout.position.to_vector(),
+                paint,
+                &layout.layout,
+            ) {
+                return true;
+            }
+        }
+
+        if let Some(ref details) = paint.details {
+            if rect.contains(cursor) && details.on_click.present() {
+                details.on_click.invoke(&ClickEvent);
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn process_click(&mut self, position: WinitLogicalPosition) -> bool {
+        let client_size = self.client_size;
+        let dpi_scale = Scale::new(self.dpi_scale);
+        let content_size: Size2D<f32, LayoutPixel> = client_size.to_f32() / dpi_scale;
+        let position: LogicalPoint = point2(position.x as f32, position.y as f32);
+
+        let root_layout = self
+            .layout_engine
+            .layout(self.window.clone(), content_size * Scale::new(1.0));
+
+        let root_paint = self
+            .render_engine
+            .render(self.window.clone(), root_layout.clone());
+
+        for layout in &root_layout.children {
+            let details = &root_paint.children[layout.index];
+            if self.process_child(position, layout.position, details, &layout.layout) {
+                return true;
+            }
+        }
+
+        false
     }
 }
