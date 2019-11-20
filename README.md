@@ -1,11 +1,11 @@
 # Moxie Native
 
-**Warning: This is a work in progress.**
+**Warning: This is a work in progress and not yet usable for nontrivial applications.**
 
 This is a framework for building GUI applications written in Rust. It
-renders natively using Webrender, instead of relying on other UI
-toolkits like Gtk or on a web browser. In that sense, it is kind of like
-React Native, but targeting Rust instead of Javascript.
+renders using Webrender, instead of relying on other UI toolkits like
+Gtk or on a web browser. This gives you control over how your
+application looks, but may lose some native look and feel.
 
 The front-facing API is built using Moxie, a framework for declaratively
 defining UI similar to React.
