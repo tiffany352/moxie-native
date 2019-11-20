@@ -31,7 +31,6 @@
 //! ```
 
 pub mod color;
-mod direct_composition;
 pub mod dom;
 mod layout;
 pub mod moxie;

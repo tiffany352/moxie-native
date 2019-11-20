@@ -1,17 +1,18 @@
 use crate::dom::{Node, Window as DomWindow};
 use crate::render::Context;
+use gleam::gl;
+use glutin::{ContextBuilder, ContextWrapper, PossiblyCurrent};
 use winit::{
     dpi::LogicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    platform::windows::WindowBuilderExtWindows,
     window::{Window as WinitWindow, WindowBuilder, WindowId},
 };
 
 /// Wrapper around a `winit::Window` and a `Context` for rendering the
 /// DOM.
 pub struct Window {
-    winit_window: WinitWindow,
+    gl_context: ContextWrapper<PossiblyCurrent, WinitWindow>,
     context: Context,
     cursor_pos: LogicalPosition,
 }
@@ -22,26 +23,44 @@ impl Window {
         event_loop: &EventLoopWindowTarget<()>,
         proxy: EventLoopProxy<()>,
     ) -> Window {
-        let winit_window = WindowBuilder::new()
+        let window_builder = WindowBuilder::new()
             .with_title("UI Lib")
             .with_decorations(true)
-            .with_transparent(true)
-            .with_no_redirection_bitmap(true)
-            .build(event_loop)
+            .with_transparent(true);
+
+        let gl_context = ContextBuilder::new()
+            .with_gl(glutin::GlRequest::GlThenGles {
+                opengl_version: (3, 2),
+                opengles_version: (3, 0),
+            })
+            .build_windowed(window_builder, &event_loop)
             .unwrap();
 
-        let mut context = Context::new(&winit_window, proxy, dom_window);
+        let gl_context = unsafe { gl_context.make_current().unwrap() };
+
+        let gl = match gl_context.get_api() {
+            glutin::Api::OpenGl => unsafe {
+                gl::GlFns::load_with(|symbol| gl_context.get_proc_address(symbol) as *const _)
+            },
+            glutin::Api::OpenGlEs => unsafe {
+                gl::GlesFns::load_with(|symbol| gl_context.get_proc_address(symbol) as *const _)
+            },
+            glutin::Api::WebGl => unimplemented!(),
+        };
+
+        let mut context = Context::new(gl, gl_context.window(), proxy, dom_window);
         context.render();
+        gl_context.swap_buffers().unwrap();
 
         Window {
-            winit_window,
+            gl_context,
             context,
             cursor_pos: LogicalPosition::new(0.0, 0.0),
         }
     }
 
     pub fn window_id(&self) -> WindowId {
-        self.winit_window.id()
+        self.gl_context.window().id()
     }
 
     pub fn set_dom_window(&mut self, new_node: Node<DomWindow>) {
@@ -50,6 +69,7 @@ impl Window {
 
     pub fn render(&mut self) {
         self.context.render();
+        self.gl_context.swap_buffers().unwrap();
     }
 
     pub fn process(&mut self, event: WindowEvent) -> bool {
@@ -59,9 +79,9 @@ impl Window {
             }
             WindowEvent::Resized(size) => {
                 println!("resize {}x{}", size.width, size.height);
-                let factor = self.winit_window.hidpi_factor();
+                let factor = self.gl_context.window().hidpi_factor();
                 self.context.resize(size.to_physical(factor), factor as f32);
-                self.context.render();
+                self.render();
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_pos = position;

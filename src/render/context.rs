@@ -1,11 +1,11 @@
 use super::engine::{PaintTreeNode, RenderEngine};
-use crate::direct_composition::{AngleVisual, DirectComposition};
 use crate::dom::{ClickEvent, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalPoint};
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
+use gleam::gl;
 use skribo::{FontCollection, FontFamily, FontRef, LayoutSession, TextStyle};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,7 +23,6 @@ use webrender::{
 use winit::{
     dpi::{LogicalPosition as WinitLogicalPosition, PhysicalSize},
     event_loop::EventLoopProxy,
-    platform::windows::WindowExtWindows,
     window::Window as WinitWindow,
 };
 
@@ -55,8 +54,6 @@ impl RenderNotifier for Notifier {
 /// and paint trees. It handles bubbling input events through the DOM as
 /// well.
 pub struct Context {
-    composition: DirectComposition,
-    visual: Option<AngleVisual>,
     api: RenderApi,
     document: DocumentId,
     rx: mpsc::Receiver<()>,
@@ -72,6 +69,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(
+        gl: Rc<dyn gl::Gl>,
         parent_window: &WinitWindow,
         events_proxy: EventLoopProxy<()>,
         window: Node<Window>,
@@ -84,12 +82,8 @@ impl Context {
         let client_size =
             Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
 
-        let composition = unsafe { DirectComposition::new(parent_window.hwnd() as _) };
-        let visual =
-            composition.create_angle_visual(client_size.width as u32, client_size.height as u32);
-        visual.make_current();
         let (renderer, sender) = Renderer::new(
-            composition.gleam.clone(),
+            gl,
             notifier.clone(),
             RendererOptions {
                 clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
@@ -104,8 +98,6 @@ impl Context {
         let document = api.add_document(client_size, 0);
 
         Context {
-            composition,
-            visual: Some(visual),
             api,
             document,
             rx,
@@ -127,15 +119,6 @@ impl Context {
     }
 
     pub fn resize(&mut self, size: PhysicalSize, dpi_scale: f32) {
-        if let Some(visual) = self.visual.take() {
-            self.composition.cleanup_angle_visual(visual);
-        }
-        if size.width > 0.0 && size.height > 0.0 {
-            self.visual = Some(
-                self.composition
-                    .create_angle_visual(size.width as u32, size.height as u32),
-            );
-        }
         self.client_size = size2(size.width as i32, size.height as i32);
         self.dpi_scale = dpi_scale;
     }
@@ -277,7 +260,6 @@ impl Context {
         let content_size = client_size.to_f32() / dpi_scale;
 
         println!("render()");
-        self.visual.as_mut().unwrap().make_current();
         let pipeline_id = PipelineId(0, 0);
         let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
         let mut transaction = Transaction::new();
@@ -315,8 +297,6 @@ impl Context {
         self.renderer.update();
         let _ = self.renderer.render(client_size.to_i32());
         let _ = self.renderer.flush_pipeline_info();
-        self.visual.as_mut().unwrap().present();
-        self.composition.commit();
     }
 
     pub fn process_child(

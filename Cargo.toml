@@ -7,8 +7,7 @@ edition = "2018"
 [dependencies]
 winit = "0.20.0-alpha4"
 gleam = "0.6.2"
-mozangle = {version = "0.3.1", features = ["egl"]}
-winapi = {version = "0.3", features = ["winerror", "d3d11", "dcomp"]}
+glutin = "0.22.0-alpha5"
 scopeguard = "1"
 euclid = "0.20.3"
 slotmap = "0.4"
