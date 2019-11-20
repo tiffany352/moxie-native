@@ -233,7 +233,6 @@ impl LayoutEngine {
                 let mut height = 0.0f32;
                 let mut line_height = 0.0f32;
                 let mut longest_line = 0.0f32;
-                println!("layout inline, max_size:{}", max_size);
                 for (index, child) in children.iter().enumerate() {
                     match child {
                         UnresolvedLayout::Resolved(child) => {

@@ -193,7 +193,6 @@ impl Context {
             }
 
             if let Some(LayoutText { ref text, size }) = layout.render_text {
-                println!("plain text {}", text);
                 let mut collection = FontCollection::new();
                 let source = SystemSource::new();
                 let font = source
@@ -224,8 +223,6 @@ impl Context {
                             point: pos * Scale::new(1.0),
                         })
                     }
-                    println!("font: {}", font.font.full_name());
-                    println!("#glyphs {}", glyphs.len());
                     let font_key = self.get_font(font, transaction);
                     let key = self.get_font_instance(font_key, size as usize, transaction);
                     builder.push_text(
