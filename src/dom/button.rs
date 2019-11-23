@@ -1,6 +1,6 @@
 use super::{
-    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrStyles, AttrWidth, CanSetEvent,
-    ClickEvent, Element, EventHandler, Node, Span, View,
+    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrStyles, AttrWidth, ClickEvent, Element,
+    EventHandler, HasEvent, Node, Span, View,
 };
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::render::PaintDetails;
@@ -16,13 +16,6 @@ pub struct Button {
     width: Option<f32>,
     height: Option<f32>,
     padding: Option<f32>,
-    on_click: EventHandler<ClickEvent>,
-}
-
-impl CanSetEvent<ClickEvent> for Button {
-    fn set_handler(&mut self, handler: EventHandler<ClickEvent>) {
-        self.on_click = handler;
-    }
 }
 
 crate::multiple_children! {
@@ -44,13 +37,20 @@ crate::element_attributes! {
     }
 }
 
+crate::element_handlers! {
+    ButtonHandlers for Button {
+        on_click: ClickEvent,
+    }
+}
+
 impl Element for Button {
     type Child = ButtonChild;
+    type Handlers = ButtonHandlers;
 
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, handlers: &ButtonHandlers) -> Option<PaintDetails> {
         Some(PaintDetails {
             background_color: Some(self.color.unwrap_or(Color::new(50, 180, 200, 255))),
-            on_click: self.on_click.clone(),
+            on_click: handlers.on_click.clone(),
             ..Default::default()
         })
     }

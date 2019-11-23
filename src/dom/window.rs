@@ -18,6 +18,7 @@ crate::element_attributes! {
 
 impl Element for Window {
     type Child = Node<View>;
+    type Handlers = ();
 
     fn create_layout_opts(&self, _parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {

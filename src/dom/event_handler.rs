@@ -59,13 +59,3 @@ impl<Event> Clone for EventHandler<Event> {
         EventHandler(self.0.clone())
     }
 }
-
-impl<Event> PartialEq for EventHandler<Event> {
-    fn eq(&self, other: &Self) -> bool {
-        match (&self.0, &other.0) {
-            (Some(ref left), Some(ref right)) => Rc::ptr_eq(left, right),
-            (None, None) => true,
-            _ => false,
-        }
-    }
-}

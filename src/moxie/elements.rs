@@ -1,10 +1,11 @@
-use crate::dom::{Attribute, CanSetEvent, Element, Event, EventHandler, HasAttribute, Node};
+use crate::dom::{Attribute, Element, Event, EventHandler, HasAttribute, HasEvent, Node};
 use moxie::*;
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
 pub struct Builder<Elt: Element> {
     element: Elt,
+    handlers: Elt::Handlers,
     children: Vec<Elt::Child>,
 }
 
@@ -16,6 +17,7 @@ where
     fn new() -> Self {
         Builder {
             element: Elt::default(),
+            handlers: Elt::Handlers::default(),
             children: vec![],
         }
     }
@@ -38,14 +40,14 @@ where
     }
 
     /// Register an event handler on the element. The event type has to
-    /// be supported by the element, see `CanSetEvent`.
+    /// be supported by the element, see `HasEvent`.
     pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
     where
         E: Event,
-        Elt: CanSetEvent<E>,
+        Elt: HasEvent<E>,
     {
         topo::call!({
-            self.element.set_handler(EventHandler::with_func(func));
+            Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
         });
         self
     }
@@ -65,13 +67,17 @@ where
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
     pub fn build(self) -> Node<Elt> {
-        memo!((self.element, self.children), |(elt, children): &(
+        let node = memo!((self.element, self.children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
             elt.clone(),
             children.clone()
-        ))
+        ));
+
+        node.handlers().replace(self.handlers);
+
+        node
     }
 }
 

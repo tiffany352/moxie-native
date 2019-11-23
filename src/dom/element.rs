@@ -7,6 +7,7 @@ use crate::style::Style;
 pub trait Element: Default + Clone + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + PartialEq;
+    type Handlers: HandlerList;
 
     /// Describes how this element should be laid out.
     fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
@@ -19,7 +20,7 @@ pub trait Element: Default + Clone + PartialEq + 'static {
 
     /// Describes how this element should be displayed on the screen.
     /// Return None for this element to only affect layout.
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, _handlers: &Self::Handlers) -> Option<PaintDetails> {
         None
     }
 }
@@ -30,11 +31,12 @@ pub trait Event {}
 /// Statically defines the relationship between which elements can have
 /// which events listened to, and also provides the mechanism for that
 /// to happen via the set_handler method.
-pub trait CanSetEvent<Ev>
+pub trait HasEvent<Ev>: Element
 where
     Ev: Event,
 {
-    fn set_handler(&mut self, handler: EventHandler<Ev>);
+    fn set_handler(list: &mut Self::Handlers, handler: EventHandler<Ev>);
+    fn get_handler(list: &Self::Handlers) -> &EventHandler<Ev>;
 }
 
 pub trait Attribute: Sized {
@@ -97,7 +99,7 @@ where
     Elt: Element,
 {
     fn paint(&self) -> Option<PaintDetails> {
-        Element::paint(self.element())
+        Element::paint(self.element(), &*self.handlers().borrow())
     }
 
     fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
@@ -133,3 +135,5 @@ impl NodeChild for String {
         None
     }
 }
+
+pub trait HandlerList: Default + 'static {}

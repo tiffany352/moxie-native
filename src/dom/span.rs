@@ -24,8 +24,9 @@ crate::element_attributes! {
 
 impl Element for Span {
     type Child = String;
+    type Handlers = ();
 
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
         None
     }
 

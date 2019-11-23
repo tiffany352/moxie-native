@@ -14,7 +14,7 @@ pub mod window;
 
 pub use attributes::*;
 pub use button::Button;
-pub use element::{Attribute, CanSetEvent, Element, Event, HasAttribute, NodeChild};
+pub use element::{Attribute, Element, Event, HandlerList, HasAttribute, HasEvent, NodeChild};
 pub use event_handler::EventHandler;
 pub use events::*;
 pub use node::Node;
@@ -82,3 +82,31 @@ macro_rules! element_attributes {
         )+
     };
 }
+
+#[macro_export]
+macro_rules! element_handlers {
+    ( $handler_name:ident for $element:ty { $( $name:ident : $class:ty ),+ $(,)* } ) => {
+        #[derive(Default)]
+        pub struct $handler_name {
+            $(
+                $name : EventHandler<$class>
+            ),+
+        }
+
+        $(
+            impl HasEvent<$class> for $element {
+                fn set_handler(list: &mut $handler_name, handler: EventHandler<$class>) {
+                    list.$name = handler;
+                }
+
+                fn get_handler(list: &$handler_name) -> &EventHandler<$class> {
+                    &list.$name
+                }
+            }
+        )+
+
+        impl $crate::dom::HandlerList for $handler_name {}
+    };
+}
+
+impl HandlerList for () {}

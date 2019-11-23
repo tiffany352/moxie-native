@@ -39,8 +39,9 @@ crate::element_attributes! {
 
 impl Element for View {
     type Child = ViewChild;
+    type Handlers = ();
 
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
         Some(PaintDetails {
             background_color: Some(self.color.unwrap_or(Color::new(50, 180, 200, 255))),
             ..Default::default()
