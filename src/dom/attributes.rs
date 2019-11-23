@@ -1,3 +1,4 @@
+use crate::style::Style;
 use crate::Color;
 use std::borrow::Cow;
 
@@ -12,6 +13,7 @@ macro_rules! attribute {
     };
 }
 
+attribute!(AttrStyles, Cow<'static, [&'static Style]>);
 attribute!(AttrClassName, Cow<'static, str>);
 attribute!(AttrPadding, f32);
 attribute!(AttrTextSize, f32);

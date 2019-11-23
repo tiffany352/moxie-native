@@ -4,8 +4,8 @@ use crate::Color;
 use moxie::embed::Runtime;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
-use std::rc::Rc;
 
+#[derive(Clone, PartialEq)]
 pub enum Selector {
     ElementType(TypeId),
     ClassName(Cow<'static, str>),
@@ -34,7 +34,7 @@ impl Selector {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Value {
     pub pixels: f32,
     pub ems: f32,
@@ -57,7 +57,7 @@ impl Value {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq)]
 pub struct CommonAttributes {
     pub text_size: Option<Value>,
     pub text_color: Option<Color>,
@@ -91,6 +91,7 @@ pub struct ComputedValues {
     pub background_color: Color,
 }
 
+#[derive(Clone, PartialEq)]
 pub struct Style {
     pub selector: Selector,
     pub attributes: CommonAttributes,
@@ -118,9 +119,9 @@ impl Style {
     }
 }
 
-struct StyleChain {
-    styles: Vec<Style>,
-    parent: Option<Rc<StyleChain>>,
+struct StyleChain<'a> {
+    styles: &'a [&'static Style],
+    parent: Option<&'a StyleChain<'a>>,
 }
 
 /// Used to annotate the node tree with computed values from styling.
@@ -139,18 +140,17 @@ impl StyleEngine {
     where
         Elt: Element,
     {
-        if let Some(ref parent) = chain.parent {
+        if let Some(parent) = chain.parent {
             Self::apply_style(node, parent, values);
         }
-        for style in &chain.styles {
+        for style in chain.styles {
             if style.selector.select(node) {
                 style.apply(node, values);
             }
         }
     }
 
-    #[topo::from_env(style_chain: &StyleChain)]
-    fn update_style<Elt>(node: &Node<Elt>)
+    fn update_style<Elt>(node: &Node<Elt>, chain: &StyleChain)
     where
         Elt: Element,
     {
@@ -169,16 +169,26 @@ impl StyleEngine {
             text_color: Color::black(),
             background_color: Color::clear(),
         };
-        Self::apply_style(node, style_chain, &mut computed);
+        Self::apply_style(node, chain, &mut computed);
         node.computed_values().set(Some(computed));
     }
 
     #[topo::from_env(node: &Node<Window>)]
     fn run_styling() {
-        Self::update_style(node);
+        let chain = StyleChain {
+            styles: node.element().styles(),
+            parent: None,
+        };
+        Self::update_style(node, &chain);
 
         for child in node.children() {
-            Self::update_style(child);
+            Self::update_style(
+                child,
+                &StyleChain {
+                    styles: child.element().styles(),
+                    parent: Some(&chain),
+                },
+            );
         }
     }
 

@@ -1,13 +1,16 @@
 use super::{
-    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrWidth, Button, Element, Node, Span,
+    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrStyles, AttrWidth, Button, Element,
+    Node, Span,
 };
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::render::PaintDetails;
+use crate::style::Style;
 use crate::Color;
 use std::borrow::Cow;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct View {
+    styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
     color: Option<Color>,
     width: Option<f32>,
@@ -25,6 +28,7 @@ crate::multiple_children! {
 
 crate::element_attributes! {
     View {
+        styles: AttrStyles,
         class_name: AttrClassName,
         padding: AttrPadding,
         width: AttrWidth,
@@ -55,5 +59,9 @@ impl Element for View {
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        self.styles.as_ref()
     }
 }

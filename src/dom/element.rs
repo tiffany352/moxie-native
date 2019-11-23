@@ -1,6 +1,7 @@
 use super::{EventHandler, Node};
 use crate::layout::{LayoutOptions, LayoutType};
 use crate::render::PaintDetails;
+use crate::style::Style;
 
 /// Represents the attributes and behavior of a single DOM element.
 pub trait Element: Default + Clone + PartialEq + 'static {
@@ -12,6 +13,9 @@ pub trait Element: Default + Clone + PartialEq + 'static {
 
     /// Returns the class_name attribute.
     fn class_name(&self) -> Option<&str>;
+
+    /// Returns the list of styles attached to this element.
+    fn styles(&self) -> &[&'static Style];
 
     /// Describes how this element should be displayed on the screen.
     /// Return None for this element to only affect layout.

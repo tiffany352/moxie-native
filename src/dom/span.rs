@@ -1,11 +1,13 @@
-use super::{AttrClassName, AttrColor, AttrTextSize, Element};
+use super::{AttrClassName, AttrColor, AttrStyles, AttrTextSize, Element};
 use crate::layout::{LayoutOptions, LayoutType, LogicalLength};
 use crate::render::PaintDetails;
+use crate::style::Style;
 use crate::Color;
 use std::borrow::Cow;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Span {
+    styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
     color: Option<Color>,
     text_size: Option<f32>,
@@ -13,6 +15,7 @@ pub struct Span {
 
 crate::element_attributes! {
     Span {
+        styles: AttrStyles,
         class_name: AttrClassName,
         color: AttrColor,
         text_size: AttrTextSize,
@@ -39,5 +42,9 @@ impl Element for Span {
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        self.styles.as_ref()
     }
 }

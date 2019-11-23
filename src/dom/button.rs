@@ -1,14 +1,16 @@
 use super::{
-    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrWidth, CanSetEvent, ClickEvent, Element,
-    EventHandler, Node, Span, View,
+    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrStyles, AttrWidth, CanSetEvent,
+    ClickEvent, Element, EventHandler, Node, Span, View,
 };
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::render::PaintDetails;
+use crate::style::Style;
 use crate::Color;
 use std::borrow::Cow;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Button {
+    styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
     color: Option<Color>,
     width: Option<f32>,
@@ -33,6 +35,7 @@ crate::multiple_children! {
 
 crate::element_attributes! {
     Button {
+        styles: AttrStyles,
         class_name: AttrClassName,
         padding: AttrPadding,
         width: AttrWidth,
@@ -64,5 +67,9 @@ impl Element for Button {
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        self.styles.as_ref()
     }
 }

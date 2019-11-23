@@ -76,7 +76,7 @@ macro_rules! element_attributes {
         $(
             impl $crate::dom::HasAttribute<$class> for $element {
                 fn set_attribute(&mut self, value: <$class as crate::dom::Attribute>::Value) {
-                    self.$name = Some(value);
+                    self.$name = value.into();
                 }
             }
         )+
