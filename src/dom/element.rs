@@ -14,6 +14,9 @@ pub trait Element: Default + Clone + PartialEq + 'static {
     /// Describes how this element should be laid out.
     fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
 
+    /// Returns the class_name attribute.
+    fn class_name(&self) -> Option<&str>;
+
     /// Describes how this element should be displayed on the screen.
     /// Return None for this element to only affect layout.
     fn paint(&self) -> Option<PaintDetails> {

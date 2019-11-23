@@ -1,6 +1,7 @@
 use super::engine::{PaintTreeNode, RenderEngine};
 use crate::dom::{ClickEvent, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalPoint};
+use crate::style::StyleEngine;
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -60,6 +61,7 @@ pub struct Context {
     renderer: Renderer,
     layout_engine: LayoutEngine,
     render_engine: RenderEngine,
+    style_engine: StyleEngine,
     window: Node<Window>,
     client_size: Size2D<i32, DevicePixel>,
     dpi_scale: f32,
@@ -105,6 +107,7 @@ impl Context {
             window,
             layout_engine: LayoutEngine::new(),
             render_engine: RenderEngine::new(),
+            style_engine: StyleEngine::new(),
             client_size,
             dpi_scale,
             fonts: HashMap::new(),
@@ -260,6 +263,9 @@ impl Context {
         let pipeline_id = PipelineId(0, 0);
         let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
         let mut transaction = Transaction::new();
+
+        self.style_engine
+            .update(self.window.clone(), content_size * Scale::new(1.0));
 
         let root_layout = self
             .layout_engine

@@ -51,4 +51,8 @@ impl Element for View {
             ..Default::default()
         }
     }
+
+    fn class_name(&self) -> Option<&str> {
+        self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
 }
