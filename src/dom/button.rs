@@ -1,4 +1,7 @@
-use super::{CanSetEvent, ClickEvent, Element, EventHandler, Node, Span, View};
+use super::{
+    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrWidth, CanSetEvent, ClickEvent, Element,
+    EventHandler, Node, Span, View,
+};
 use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
 use crate::render::PaintDetails;
 use crate::Color;
@@ -28,19 +31,18 @@ crate::multiple_children! {
     }
 }
 
+crate::element_attributes! {
+    Button {
+        class_name: AttrClassName,
+        padding: AttrPadding,
+        width: AttrWidth,
+        height: AttrHeight,
+        color: AttrColor,
+    }
+}
+
 impl Element for Button {
     type Child = ButtonChild;
-
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
-        match key {
-            "className" => self.class_name = value,
-            "color" => self.color = value.and_then(|string| Color::parse(&string[..]).ok()),
-            "width" => self.width = value.and_then(|string| string.parse::<f32>().ok()),
-            "height" => self.height = value.and_then(|string| string.parse::<f32>().ok()),
-            "padding" => self.padding = value.and_then(|string| string.parse::<f32>().ok()),
-            _ => (),
-        }
-    }
 
     fn paint(&self) -> Option<PaintDetails> {
         Some(PaintDetails {

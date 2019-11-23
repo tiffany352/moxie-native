@@ -1,4 +1,4 @@
-use super::Element;
+use super::{AttrClassName, AttrColor, AttrTextSize, Element};
 use crate::layout::{LayoutOptions, LayoutType, LogicalLength};
 use crate::render::PaintDetails;
 use crate::Color;
@@ -11,27 +11,16 @@ pub struct Span {
     text_size: Option<f32>,
 }
 
-impl Span {
-    pub fn new() -> Span {
-        Span {
-            class_name: None,
-            color: None,
-            text_size: None,
-        }
+crate::element_attributes! {
+    Span {
+        class_name: AttrClassName,
+        color: AttrColor,
+        text_size: AttrTextSize,
     }
 }
 
 impl Element for Span {
     type Child = String;
-
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
-        match key {
-            "className" => self.class_name = value,
-            "color" => self.color = value.and_then(|s| Color::parse(s.as_ref()).ok()),
-            "textSize" => self.text_size = value.and_then(|s| s.parse::<f32>().ok()),
-            _ => (),
-        }
-    }
 
     fn paint(&self) -> Option<PaintDetails> {
         None

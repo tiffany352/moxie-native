@@ -1,4 +1,4 @@
-use crate::dom::{CanSetEvent, Element, Event, EventHandler, Node};
+use crate::dom::{Attribute, CanSetEvent, Element, Event, EventHandler, HasAttribute, Node};
 use moxie::*;
 
 /// Builder pattern for creating a DOM node, typically used from the
@@ -26,10 +26,13 @@ where
     }
 
     /// Set an attribute on the element.
-    pub fn attr(mut self, key: &str, value: &str) -> Self {
+    pub fn attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
+    where
+        Attr: Attribute,
+        Elt: HasAttribute<Attr>,
+    {
         topo::call!({
-            self.element
-                .set_attribute(key, Some(value.to_owned().into()));
+            self.element.set_attribute(value.into());
         });
         self
     }

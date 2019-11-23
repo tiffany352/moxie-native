@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use moxie_native::dom::*;
 use moxie_native::moxie::*;
 use moxie_native::*;
@@ -13,21 +15,21 @@ fn foo() -> Vec<Node<Window>> {
 
     vec![mox! {
         <window>
-            <view padding="10">
-                <span textSize="20">
+            <view padding=10.0>
+                <span text_size=20.0>
                     "Bigger Te" "xt"
                 </span>
                 <span>
                     "foo bar baz"
                     " the quick brown fox jumps over the lazy dog"
                 </span>
-                <button on={on_click} color="238,238,238,255">
+                <button on={on_click} color={Color::new(238,238,238,255)}>
                     <span>
                         "Clicked " {% "{}", click_count} " times)"
                     </span>
                 </button>
-                <view color="255,0,0,255" width="200" height="200"></view>
-                <view color="0,255,0,255" width="250" height="150"></view>
+                <view color={Color::new(255,0,0,255)} width=200.0 height=200.0></view>
+                <view color={Color::new(0,255,0,255)} width=250.0 height=150.0></view>
             </view>
         </window>
     }]

@@ -1,4 +1,4 @@
-use super::{Element, Node, View};
+use super::{AttrClassName, Element, Node, View};
 use crate::layout::LayoutOptions;
 use std::borrow::Cow;
 
@@ -7,21 +7,14 @@ pub struct Window {
     class_name: Option<Cow<'static, str>>,
 }
 
-impl Window {
-    pub fn new() -> Window {
-        Window { class_name: None }
+crate::element_attributes! {
+    Window {
+        class_name: AttrClassName,
     }
 }
 
 impl Element for Window {
     type Child = Node<View>;
-
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
-        match key {
-            "className" => self.class_name = value,
-            _ => (),
-        }
-    }
 
     fn create_layout_opts(&self, _parent_opts: &LayoutOptions) -> LayoutOptions {
         LayoutOptions {

@@ -2,6 +2,7 @@
 //! moxie-native. It implements the DOM hierarchy which is used to
 //! represent the UI.
 
+pub mod attributes;
 pub mod button;
 pub mod element;
 pub mod event_handler;
@@ -11,10 +12,11 @@ pub mod span;
 pub mod view;
 pub mod window;
 
+pub use attributes::*;
 pub use button::Button;
-pub use element::{CanSetEvent, Element, Event, NodeChild};
+pub use element::{Attribute, CanSetEvent, Element, Event, HasAttribute, NodeChild};
 pub use event_handler::EventHandler;
-pub use events::ClickEvent;
+pub use events::*;
 pub use node::Node;
 pub use span::Span;
 pub use view::View;
@@ -66,4 +68,17 @@ macro_rules! multiple_children {
             }
         }
     }
+}
+
+#[macro_export]
+macro_rules! element_attributes {
+    ( $element:ty { $( $name:ident : $class:ty ),+ $(,)* } ) => {
+        $(
+            impl $crate::dom::HasAttribute<$class> for $element {
+                fn set_attribute(&mut self, value: <$class as crate::dom::Attribute>::Value) {
+                    self.$name = Some(value);
+                }
+            }
+        )+
+    };
 }

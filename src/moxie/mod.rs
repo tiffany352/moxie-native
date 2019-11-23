@@ -22,6 +22,8 @@
 pub use moxie::*;
 pub mod elements;
 pub use elements::*;
+pub mod attributes;
+pub use attributes::*;
 
 /// Used by the mox! macro for free-standing text, which is then passed
 /// to `Builder::add_content`.

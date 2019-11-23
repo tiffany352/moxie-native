@@ -245,8 +245,8 @@ impl ToTokens for MoxAttr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let stream = match self {
             MoxAttr::Simple { name, value } => {
-                let name = name.to_string();
-                quote!(.attr(#name, #value))
+                let ident = Ident::new(&format!("attr_{}", name.to_string())[..], name.span());
+                quote!(.attr(#ident(), #value))
             }
             MoxAttr::Handler {
                 value: TokenTree::Group(g),

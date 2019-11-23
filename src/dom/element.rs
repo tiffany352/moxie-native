@@ -1,15 +1,11 @@
 use super::{EventHandler, Node};
 use crate::layout::{LayoutOptions, LayoutType};
 use crate::render::PaintDetails;
-use std::borrow::Cow;
 
 /// Represents the attributes and behavior of a single DOM element.
 pub trait Element: Default + Clone + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + PartialEq;
-
-    /// Attributes passed in from the element builder, to be decoded and set on this element.
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>);
 
     /// Describes how this element should be laid out.
     fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
@@ -35,6 +31,17 @@ where
     Ev: Event,
 {
     fn set_handler(&mut self, handler: EventHandler<Ev>);
+}
+
+pub trait Attribute: Sized {
+    type Value: Sized;
+}
+
+pub trait HasAttribute<Attr>
+where
+    Attr: Attribute,
+{
+    fn set_attribute(&mut self, value: Attr::Value);
 }
 
 /// Because some elements need to have multiple types of elements
