@@ -1,24 +1,18 @@
-use super::{AttrClassName, AttrColor, AttrStyles, AttrTextSize, Element};
-use crate::layout::{LayoutOptions, LayoutType, LogicalLength};
+use super::{AttrClassName, AttrStyles, Element};
 use crate::render::PaintDetails;
-use crate::style::Style;
-use crate::Color;
+use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 use std::borrow::Cow;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Span {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
-    color: Option<Color>,
-    text_size: Option<f32>,
 }
 
 crate::element_attributes! {
     Span {
         styles: AttrStyles,
         class_name: AttrClassName,
-        color: AttrColor,
-        text_size: AttrTextSize,
     }
 }
 
@@ -30,13 +24,9 @@ impl Element for Span {
         None
     }
 
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            layout_ty: LayoutType::Inline,
-            text_size: self
-                .text_size
-                .map(LogicalLength::new)
-                .unwrap_or(parent_opts.text_size),
+    fn create_computed_values(&self) -> ComputedValues {
+        ComputedValues {
+            display: DisplayType::Inline(InlineValues {}),
             ..Default::default()
         }
     }

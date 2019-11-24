@@ -1,5 +1,4 @@
 use super::{AttrClassName, AttrStyles, Element, Node, View};
-use crate::layout::LayoutOptions;
 use crate::style::Style;
 use std::borrow::Cow;
 
@@ -19,12 +18,6 @@ crate::element_attributes! {
 impl Element for Window {
     type Child = Node<View>;
     type Handlers = ();
-
-    fn create_layout_opts(&self, _parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            ..Default::default()
-        }
-    }
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())

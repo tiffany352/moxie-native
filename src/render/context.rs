@@ -173,8 +173,8 @@ impl Context {
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
-        if let Some(ref details) = paint.details {
-            if let Some(color) = details.background_color {
+        if let Some(ref values) = paint.values {
+            if values.background_color.alpha > 0 {
                 let region =
                     ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
                 let clip = builder.define_clip(
@@ -191,54 +191,54 @@ impl Context {
                             clip_id: clip,
                         },
                     ),
-                    color.into(),
+                    values.background_color.into(),
                 );
             }
+        }
 
-            if let Some(LayoutText { ref text, size }) = layout.render_text {
-                let mut collection = FontCollection::new();
-                let source = SystemSource::new();
-                let font = source
-                    .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-                    .unwrap()
-                    .load()
-                    .unwrap();
-                collection.add_family(FontFamily::new_from_font(font));
+        if let Some(LayoutText { ref text, size }) = layout.render_text {
+            let mut collection = FontCollection::new();
+            let source = SystemSource::new();
+            let font = source
+                .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                .unwrap()
+                .load()
+                .unwrap();
+            collection.add_family(FontFamily::new_from_font(font));
 
-                let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
-                let color = Color::new(0, 0, 0, 255);
-                let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
-                builder.push_simple_stacking_context(
-                    point2(0.0, 0.0),
-                    space_and_clip.spatial_id,
-                    PrimitiveFlags::IS_BACKFACE_VISIBLE,
-                );
-                for run in layout.iter_substr(0..text.len()) {
-                    let font = run.font();
-                    let metrics = font.font.metrics();
-                    let units_per_px = metrics.units_per_em as f32 / size;
-                    let baseline_offset = metrics.ascent / units_per_px;
-                    let mut glyphs = vec![];
-                    for glyph in run.glyphs() {
-                        let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
-                        glyphs.push(GlyphInstance {
-                            index: glyph.glyph_id,
-                            point: pos * Scale::new(1.0),
-                        })
-                    }
-                    let font_key = self.get_font(font, transaction);
-                    let key = self.get_font_instance(font_key, size as usize, transaction);
-                    builder.push_text(
-                        &CommonItemProperties::new(rect, space_and_clip),
-                        rect,
-                        &glyphs[..],
-                        key,
-                        color.into(),
-                        None,
-                    );
+            let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
+            let color = Color::new(0, 0, 0, 255);
+            let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+            builder.push_simple_stacking_context(
+                point2(0.0, 0.0),
+                space_and_clip.spatial_id,
+                PrimitiveFlags::IS_BACKFACE_VISIBLE,
+            );
+            for run in layout.iter_substr(0..text.len()) {
+                let font = run.font();
+                let metrics = font.font.metrics();
+                let units_per_px = metrics.units_per_em as f32 / size;
+                let baseline_offset = metrics.ascent / units_per_px;
+                let mut glyphs = vec![];
+                for glyph in run.glyphs() {
+                    let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
+                    glyphs.push(GlyphInstance {
+                        index: glyph.glyph_id,
+                        point: pos * Scale::new(1.0),
+                    })
                 }
-                builder.pop_stacking_context();
+                let font_key = self.get_font(font, transaction);
+                let key = self.get_font_instance(font_key, size as usize, transaction);
+                builder.push_text(
+                    &CommonItemProperties::new(rect, space_and_clip),
+                    rect,
+                    &glyphs[..],
+                    key,
+                    color.into(),
+                    None,
+                );
             }
+            builder.pop_stacking_context();
         }
 
         for layout in &layout.children {
@@ -338,6 +338,9 @@ impl Context {
         let dpi_scale = Scale::new(self.dpi_scale);
         let content_size: Size2D<f32, LayoutPixel> = client_size.to_f32() / dpi_scale;
         let position: LogicalPoint = point2(position.x as f32, position.y as f32);
+
+        self.style_engine
+            .update(self.window.clone(), content_size * Scale::new(1.0));
 
         let root_layout = self
             .layout_engine

@@ -51,18 +51,50 @@ macro_rules! multiple_children {
                 }
             }
 
-            fn create_layout_opts(&self, parent_opts: &$crate::layout::LayoutOptions) -> $crate::layout::LayoutOptions {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.create_layout_opts(parent_opts)
-                    ),+
-                }
-            }
-
             fn get_child(&self, child: usize) -> Option<&dyn $crate::dom::NodeChild> {
                 match self {
                     $(
                         $name::$var_name(elt) => elt.get_child(child)
+                    ),+
+                }
+            }
+
+            fn computed_values(&self) -> Result<&::std::cell::Cell<Option<$crate::style::ComputedValues>>, &str> {
+                match self {
+                    $(
+                        $name::$var_name(elt) => Ok(elt.computed_values())
+                    ),+
+                }
+            }
+
+            fn type_id(&self) -> ::std::any::TypeId {
+                match self {
+                    $(
+                        $name::$var_name(_) => ::std::any::TypeId::of::<$var_ty>()
+                    ),+
+                }
+            }
+
+            fn class_name(&self) -> Option<&str> {
+                match self {
+                    $(
+                        $name::$var_name(elt) => elt.class_name()
+                    ),+
+                }
+            }
+
+            fn styles(&self) -> &[&'static $crate::style::Style] {
+                match self {
+                    $(
+                        $name::$var_name(elt) => elt.styles()
+                    ),+
+                }
+            }
+
+            fn create_computed_values(&self) -> $crate::style::ComputedValues {
+                match self {
+                    $(
+                        $name::$var_name(elt) => elt.create_computed_values()
                     ),+
                 }
             }

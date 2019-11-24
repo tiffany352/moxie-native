@@ -1,10 +1,6 @@
-use super::{
-    AttrClassName, AttrColor, AttrHeight, AttrPadding, AttrStyles, AttrWidth, Button, Element,
-    Node, Span,
-};
-use crate::layout::{LayoutOptions, LogicalLength, LogicalSideOffsets};
+use super::{AttrClassName, AttrStyles, Button, Element, Node, Span};
 use crate::render::PaintDetails;
-use crate::style::Style;
+use crate::style::{ComputedValues, Style};
 use crate::Color;
 use std::borrow::Cow;
 
@@ -12,10 +8,6 @@ use std::borrow::Cow;
 pub struct View {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
-    color: Option<Color>,
-    width: Option<f32>,
-    height: Option<f32>,
-    padding: Option<f32>,
 }
 
 crate::multiple_children! {
@@ -30,10 +22,6 @@ crate::element_attributes! {
     View {
         styles: AttrStyles,
         class_name: AttrClassName,
-        padding: AttrPadding,
-        width: AttrWidth,
-        height: AttrHeight,
-        color: AttrColor,
     }
 }
 
@@ -42,20 +30,7 @@ impl Element for View {
     type Handlers = ();
 
     fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
-        Some(PaintDetails {
-            background_color: Some(self.color.unwrap_or(Color::new(50, 180, 200, 255))),
-            ..Default::default()
-        })
-    }
-
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            width: self.width.map(LogicalLength::new),
-            height: self.height.map(LogicalLength::new),
-            padding: LogicalSideOffsets::new_all_same(self.padding.unwrap_or(0.0)),
-            text_size: parent_opts.text_size,
-            ..Default::default()
-        }
+        Some(PaintDetails::default())
     }
 
     fn class_name(&self) -> Option<&str> {
@@ -64,5 +39,12 @@ impl Element for View {
 
     fn styles(&self) -> &[&'static Style] {
         self.styles.as_ref()
+    }
+
+    fn create_computed_values(&self) -> ComputedValues {
+        ComputedValues {
+            background_color: Color::new(50, 180, 200, 255),
+            ..Default::default()
+        }
     }
 }

@@ -36,7 +36,8 @@ mod layout;
 pub mod moxie;
 mod render;
 pub mod runtime;
-mod style;
+pub mod style;
 
 pub use color::Color;
 pub use runtime::Runtime;
+pub use style::{Display, Style, Value};
