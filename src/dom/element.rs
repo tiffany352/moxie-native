@@ -1,22 +1,29 @@
 use super::{EventHandler, Node};
-use crate::layout::{LayoutOptions, LayoutType};
 use crate::render::PaintDetails;
-use std::borrow::Cow;
+use crate::style::{ComputedValues, Style};
+use std::any::TypeId;
+use std::cell::Cell;
 
 /// Represents the attributes and behavior of a single DOM element.
 pub trait Element: Default + Clone + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + PartialEq;
+    type Handlers: HandlerList;
 
-    /// Attributes passed in from the element builder, to be decoded and set on this element.
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>);
+    /// Creates default style values
+    fn create_computed_values(&self) -> ComputedValues {
+        Default::default()
+    }
 
-    /// Describes how this element should be laid out.
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
+    /// Returns the class_name attribute.
+    fn class_name(&self) -> Option<&str>;
+
+    /// Returns the list of styles attached to this element.
+    fn styles(&self) -> &[&'static Style];
 
     /// Describes how this element should be displayed on the screen.
     /// Return None for this element to only affect layout.
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, _handlers: &Self::Handlers) -> Option<PaintDetails> {
         None
     }
 }
@@ -27,11 +34,23 @@ pub trait Event {}
 /// Statically defines the relationship between which elements can have
 /// which events listened to, and also provides the mechanism for that
 /// to happen via the set_handler method.
-pub trait CanSetEvent<Ev>
+pub trait HasEvent<Ev>: Element
 where
     Ev: Event,
 {
-    fn set_handler(&mut self, handler: EventHandler<Ev>);
+    fn set_handler(list: &mut Self::Handlers, handler: EventHandler<Ev>);
+    fn get_handler(list: &Self::Handlers) -> &EventHandler<Ev>;
+}
+
+pub trait Attribute: Sized {
+    type Value: Sized;
+}
+
+pub trait HasAttribute<Attr>
+where
+    Attr: Attribute,
+{
+    fn set_attribute(&mut self, value: Attr::Value);
 }
 
 /// Because some elements need to have multiple types of elements
@@ -45,12 +64,20 @@ where
 pub trait NodeChild: 'static {
     /// Typically a pass-through to `Element::paint()`.
     fn paint(&self) -> Option<PaintDetails>;
-    /// Typically a pass-through to `Element::create_layout_opts()`.
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions;
     /// Returns a trait object for the child at the given index. If the
     /// index is out of bounds, return None. Typically maps to
     /// `Element::children().get(index)`.
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild>;
+
+    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str>;
+
+    fn type_id(&self) -> TypeId;
+
+    fn class_name(&self) -> Option<&str>;
+
+    fn styles(&self) -> &[&'static Style];
+
+    fn create_computed_values(&self) -> ComputedValues;
 }
 
 /// A helper to walk through the children of a `NodeChild`, creating an
@@ -83,11 +110,7 @@ where
     Elt: Element,
 {
     fn paint(&self) -> Option<PaintDetails> {
-        Element::paint(self.element())
-    }
-
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
-        Element::create_layout_opts(self.element(), parent_opts)
+        self.element().paint(&*self.handlers().borrow())
     }
 
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild> {
@@ -97,25 +120,56 @@ where
             None
         }
     }
+
+    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str> {
+        Ok(self.computed_values())
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Elt>()
+    }
+
+    fn class_name(&self) -> Option<&str> {
+        self.element().class_name()
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        self.element().styles()
+    }
+
+    fn create_computed_values(&self) -> ComputedValues {
+        self.element().create_computed_values()
+    }
 }
 
 impl NodeChild for String {
     fn paint(&self) -> Option<PaintDetails> {
-        Some(PaintDetails {
-            text: Some(self.clone()),
-            ..Default::default()
-        })
-    }
-
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            layout_ty: LayoutType::Text(self.clone()),
-            text_size: parent_opts.text_size,
-            ..Default::default()
-        }
+        Some(PaintDetails::default())
     }
 
     fn get_child(&self, _child: usize) -> Option<&dyn NodeChild> {
         None
     }
+
+    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str> {
+        Err(&self[..])
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<String>()
+    }
+
+    fn class_name(&self) -> Option<&str> {
+        None
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        &[]
+    }
+
+    fn create_computed_values(&self) -> ComputedValues {
+        ComputedValues::default()
+    }
 }
+
+pub trait HandlerList: Default + 'static {}

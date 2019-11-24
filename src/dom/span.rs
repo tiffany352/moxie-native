@@ -1,50 +1,41 @@
-use super::Element;
-use crate::layout::{LayoutOptions, LayoutType, LogicalLength};
+use super::{AttrClassName, AttrStyles, Element};
 use crate::render::PaintDetails;
-use crate::Color;
+use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 use std::borrow::Cow;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Span {
+    styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
-    color: Option<Color>,
-    text_size: Option<f32>,
 }
 
-impl Span {
-    pub fn new() -> Span {
-        Span {
-            class_name: None,
-            color: None,
-            text_size: None,
-        }
+crate::element_attributes! {
+    Span {
+        styles: AttrStyles,
+        class_name: AttrClassName,
     }
 }
 
 impl Element for Span {
     type Child = String;
+    type Handlers = ();
 
-    fn set_attribute(&mut self, key: &str, value: Option<Cow<'static, str>>) {
-        match key {
-            "className" => self.class_name = value,
-            "color" => self.color = value.and_then(|s| Color::parse(s.as_ref()).ok()),
-            "textSize" => self.text_size = value.and_then(|s| s.parse::<f32>().ok()),
-            _ => (),
-        }
-    }
-
-    fn paint(&self) -> Option<PaintDetails> {
+    fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
         None
     }
 
-    fn create_layout_opts(&self, parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            layout_ty: LayoutType::Inline,
-            text_size: self
-                .text_size
-                .map(LogicalLength::new)
-                .unwrap_or(parent_opts.text_size),
+    fn create_computed_values(&self) -> ComputedValues {
+        ComputedValues {
+            display: DisplayType::Inline(InlineValues {}),
             ..Default::default()
         }
+    }
+
+    fn class_name(&self) -> Option<&str> {
+        self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
+
+    fn styles(&self) -> &[&'static Style] {
+        self.styles.as_ref()
     }
 }

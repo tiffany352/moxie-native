@@ -22,7 +22,6 @@ defining UI similar to React.
 - Styling (similar to CSS, but specified using Rust macros).
 - More powerful layouts (flexbox, flexgrid, etc).
 - More user input, such as text fields.
-- Support for more OSes than just Windows.
 
 ## License
 

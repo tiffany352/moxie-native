@@ -1,3 +1,5 @@
+use crate::style::ComputedValues;
+use std::cell::{Cell, RefCell};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -8,6 +10,8 @@ where
     Elt: Element,
 {
     element: Elt,
+    handlers: RefCell<Elt::Handlers>,
+    computed_values: Cell<Option<ComputedValues>>,
     children: Vec<Elt::Child>,
 }
 
@@ -18,6 +22,8 @@ where
     fn new(element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
         NodeData {
             element: element,
+            handlers: RefCell::new(Default::default()),
+            computed_values: Cell::new(None),
             children: children,
         }
     }
@@ -44,6 +50,14 @@ where
     /// Returns a reference to the element representing this node.
     pub fn element(&self) -> &Elt {
         &self.0.element
+    }
+
+    pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
+        &self.0.computed_values
+    }
+
+    pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
+        &self.0.handlers
     }
 }
 

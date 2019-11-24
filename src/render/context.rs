@@ -1,11 +1,12 @@
 use super::engine::{PaintTreeNode, RenderEngine};
-use crate::direct_composition::{AngleVisual, DirectComposition};
 use crate::dom::{ClickEvent, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalPoint};
+use crate::style::StyleEngine;
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
+use gleam::gl;
 use skribo::{FontCollection, FontFamily, FontRef, LayoutSession, TextStyle};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,7 +24,6 @@ use webrender::{
 use winit::{
     dpi::{LogicalPosition as WinitLogicalPosition, PhysicalSize},
     event_loop::EventLoopProxy,
-    platform::windows::WindowExtWindows,
     window::Window as WinitWindow,
 };
 
@@ -55,14 +55,13 @@ impl RenderNotifier for Notifier {
 /// and paint trees. It handles bubbling input events through the DOM as
 /// well.
 pub struct Context {
-    composition: DirectComposition,
-    visual: Option<AngleVisual>,
     api: RenderApi,
     document: DocumentId,
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
     layout_engine: LayoutEngine,
     render_engine: RenderEngine,
+    style_engine: StyleEngine,
     window: Node<Window>,
     client_size: Size2D<i32, DevicePixel>,
     dpi_scale: f32,
@@ -72,6 +71,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(
+        gl: Rc<dyn gl::Gl>,
         parent_window: &WinitWindow,
         events_proxy: EventLoopProxy<()>,
         window: Node<Window>,
@@ -84,12 +84,8 @@ impl Context {
         let client_size =
             Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
 
-        let composition = unsafe { DirectComposition::new(parent_window.hwnd() as _) };
-        let visual =
-            composition.create_angle_visual(client_size.width as u32, client_size.height as u32);
-        visual.make_current();
         let (renderer, sender) = Renderer::new(
-            composition.gleam.clone(),
+            gl,
             notifier.clone(),
             RendererOptions {
                 clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
@@ -104,8 +100,6 @@ impl Context {
         let document = api.add_document(client_size, 0);
 
         Context {
-            composition,
-            visual: Some(visual),
             api,
             document,
             rx,
@@ -113,6 +107,7 @@ impl Context {
             window,
             layout_engine: LayoutEngine::new(),
             render_engine: RenderEngine::new(),
+            style_engine: StyleEngine::new(),
             client_size,
             dpi_scale,
             fonts: HashMap::new(),
@@ -127,15 +122,6 @@ impl Context {
     }
 
     pub fn resize(&mut self, size: PhysicalSize, dpi_scale: f32) {
-        if let Some(visual) = self.visual.take() {
-            self.composition.cleanup_angle_visual(visual);
-        }
-        if size.width > 0.0 && size.height > 0.0 {
-            self.visual = Some(
-                self.composition
-                    .create_angle_visual(size.width as u32, size.height as u32),
-            );
-        }
         self.client_size = size2(size.width as i32, size.height as i32);
         self.dpi_scale = dpi_scale;
     }
@@ -187,75 +173,78 @@ impl Context {
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
-        if let Some(ref details) = paint.details {
-            if let Some(color) = details.background_color {
-                let region =
-                    ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
-                let clip = builder.define_clip(
-                    &SpaceAndClipInfo::root_scroll(pipeline_id),
-                    rect,
-                    vec![region],
-                    None,
-                );
-                builder.push_rect(
-                    &CommonItemProperties::new(
+        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+
+        if let Some(ref values) = paint.values {
+            if values.background_color.alpha > 0 {
+                let item_props = if values.border_radius.get() > 0.0 {
+                    let region = ComplexClipRegion::new(
+                        rect,
+                        BorderRadius::uniform(values.border_radius.get()),
+                        ClipMode::Clip,
+                    );
+                    let clip = builder.define_clip(
+                        &SpaceAndClipInfo::root_scroll(pipeline_id),
+                        rect,
+                        vec![region],
+                        None,
+                    );
+                    CommonItemProperties::new(
                         rect,
                         SpaceAndClipInfo {
                             spatial_id: SpatialId::root_scroll_node(pipeline_id),
                             clip_id: clip,
                         },
-                    ),
-                    color.into(),
-                );
+                    )
+                } else {
+                    CommonItemProperties::new(rect, space_and_clip)
+                };
+                builder.push_rect(&item_props, values.background_color.into());
             }
+        }
 
-            if let Some(LayoutText { ref text, size }) = layout.render_text {
-                println!("plain text {}", text);
-                let mut collection = FontCollection::new();
-                let source = SystemSource::new();
-                let font = source
-                    .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-                    .unwrap()
-                    .load()
-                    .unwrap();
-                collection.add_family(FontFamily::new_from_font(font));
+        if let Some(LayoutText { ref text, size }) = layout.render_text {
+            let mut collection = FontCollection::new();
+            let source = SystemSource::new();
+            let font = source
+                .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                .unwrap()
+                .load()
+                .unwrap();
+            collection.add_family(FontFamily::new_from_font(font));
 
-                let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
-                let color = Color::new(0, 0, 0, 255);
-                let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
-                builder.push_simple_stacking_context(
-                    point2(0.0, 0.0),
-                    space_and_clip.spatial_id,
-                    PrimitiveFlags::IS_BACKFACE_VISIBLE,
-                );
-                for run in layout.iter_substr(0..text.len()) {
-                    let font = run.font();
-                    let metrics = font.font.metrics();
-                    let units_per_px = metrics.units_per_em as f32 / size;
-                    let baseline_offset = metrics.ascent / units_per_px;
-                    let mut glyphs = vec![];
-                    for glyph in run.glyphs() {
-                        let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
-                        glyphs.push(GlyphInstance {
-                            index: glyph.glyph_id,
-                            point: pos * Scale::new(1.0),
-                        })
-                    }
-                    println!("font: {}", font.font.full_name());
-                    println!("#glyphs {}", glyphs.len());
-                    let font_key = self.get_font(font, transaction);
-                    let key = self.get_font_instance(font_key, size as usize, transaction);
-                    builder.push_text(
-                        &CommonItemProperties::new(rect, space_and_clip),
-                        rect,
-                        &glyphs[..],
-                        key,
-                        color.into(),
-                        None,
-                    );
+            let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
+            let color = Color::new(0, 0, 0, 255);
+            builder.push_simple_stacking_context(
+                point2(0.0, 0.0),
+                space_and_clip.spatial_id,
+                PrimitiveFlags::IS_BACKFACE_VISIBLE,
+            );
+            for run in layout.iter_substr(0..text.len()) {
+                let font = run.font();
+                let metrics = font.font.metrics();
+                let units_per_px = metrics.units_per_em as f32 / size;
+                let baseline_offset = metrics.ascent / units_per_px;
+                let mut glyphs = vec![];
+                for glyph in run.glyphs() {
+                    let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
+                    glyphs.push(GlyphInstance {
+                        index: glyph.glyph_id,
+                        point: pos * Scale::new(1.0),
+                    })
                 }
-                builder.pop_stacking_context();
+                let font_key = self.get_font(font, transaction);
+                let key = self.get_font_instance(font_key, size as usize, transaction);
+                builder.push_text(
+                    &CommonItemProperties::new(rect, space_and_clip),
+                    rect,
+                    &glyphs[..],
+                    key,
+                    color.into(),
+                    None,
+                );
             }
+            builder.pop_stacking_context();
         }
 
         for layout in &layout.children {
@@ -277,10 +266,12 @@ impl Context {
         let content_size = client_size.to_f32() / dpi_scale;
 
         println!("render()");
-        self.visual.as_mut().unwrap().make_current();
         let pipeline_id = PipelineId(0, 0);
         let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
         let mut transaction = Transaction::new();
+
+        self.style_engine
+            .update(self.window.clone(), content_size * Scale::new(1.0));
 
         let root_layout = self
             .layout_engine
@@ -315,8 +306,6 @@ impl Context {
         self.renderer.update();
         let _ = self.renderer.render(client_size.to_i32());
         let _ = self.renderer.flush_pipeline_info();
-        self.visual.as_mut().unwrap().present();
-        self.composition.commit();
     }
 
     pub fn process_child(
@@ -355,6 +344,9 @@ impl Context {
         let dpi_scale = Scale::new(self.dpi_scale);
         let content_size: Size2D<f32, LayoutPixel> = client_size.to_f32() / dpi_scale;
         let position: LogicalPoint = point2(position.x as f32, position.y as f32);
+
+        self.style_engine
+            .update(self.window.clone(), content_size * Scale::new(1.0));
 
         let root_layout = self
             .layout_engine

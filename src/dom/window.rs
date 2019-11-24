@@ -1,24 +1,41 @@
-use super::{Element, Node, View};
-use crate::layout::LayoutOptions;
+use super::{AttrClassName, AttrStyles, AttrTitle, Element, Node, View};
+use crate::style::Style;
 use std::borrow::Cow;
 
-#[derive(Default, Clone, PartialEq)]
-pub struct Window {}
+#[derive(Clone, PartialEq)]
+pub struct Window {
+    styles: Cow<'static, [&'static Style]>,
+    class_name: Option<Cow<'static, str>>,
+    pub title: String,
+}
 
-impl Window {
-    pub fn new() -> Window {
-        Window {}
+impl Default for Window {
+    fn default() -> Self {
+        Window {
+            styles: Cow::default(),
+            class_name: None,
+            title: "Untitled Window".to_owned(),
+        }
+    }
+}
+
+crate::element_attributes! {
+    Window {
+        styles: AttrStyles,
+        class_name: AttrClassName,
+        title: AttrTitle,
     }
 }
 
 impl Element for Window {
     type Child = Node<View>;
+    type Handlers = ();
 
-    fn set_attribute(&mut self, _key: &str, _value: Option<Cow<'static, str>>) {}
+    fn class_name(&self) -> Option<&str> {
+        self.class_name.as_ref().map(|cow| cow.as_ref())
+    }
 
-    fn create_layout_opts(&self, _parent_opts: &LayoutOptions) -> LayoutOptions {
-        LayoutOptions {
-            ..Default::default()
-        }
+    fn styles(&self) -> &[&'static Style] {
+        self.styles.as_ref()
     }
 }

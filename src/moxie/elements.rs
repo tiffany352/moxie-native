@@ -1,10 +1,11 @@
-use crate::dom::{CanSetEvent, Element, Event, EventHandler, Node};
+use crate::dom::{Attribute, Element, Event, EventHandler, HasAttribute, HasEvent, Node};
 use moxie::*;
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
 pub struct Builder<Elt: Element> {
     element: Elt,
+    handlers: Elt::Handlers,
     children: Vec<Elt::Child>,
 }
 
@@ -16,6 +17,7 @@ where
     fn new() -> Self {
         Builder {
             element: Elt::default(),
+            handlers: Elt::Handlers::default(),
             children: vec![],
         }
     }
@@ -26,23 +28,26 @@ where
     }
 
     /// Set an attribute on the element.
-    pub fn attr(mut self, key: &str, value: &str) -> Self {
+    pub fn attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
+    where
+        Attr: Attribute,
+        Elt: HasAttribute<Attr>,
+    {
         topo::call!({
-            self.element
-                .set_attribute(key, Some(value.to_owned().into()));
+            self.element.set_attribute(value.into());
         });
         self
     }
 
     /// Register an event handler on the element. The event type has to
-    /// be supported by the element, see `CanSetEvent`.
+    /// be supported by the element, see `HasEvent`.
     pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
     where
         E: Event,
-        Elt: CanSetEvent<E>,
+        Elt: HasEvent<E>,
     {
         topo::call!({
-            self.element.set_handler(EventHandler::with_func(func));
+            Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
         });
         self
     }
@@ -62,13 +67,17 @@ where
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
     pub fn build(self) -> Node<Elt> {
-        memo!((self.element, self.children), |(elt, children): &(
+        let node = memo!((self.element, self.children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
             elt.clone(),
             children.clone()
-        ))
+        ));
+
+        node.handlers().replace(self.handlers);
+
+        node
     }
 }
 
