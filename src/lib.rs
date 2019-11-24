@@ -40,4 +40,4 @@ pub mod style;
 
 pub use color::Color;
 pub use runtime::Runtime;
-pub use style::{Display, Style, Value};
+pub use style::{Direction, Display, Style, Value};

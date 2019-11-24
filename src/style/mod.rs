@@ -59,15 +59,24 @@ pub enum Display {
     Inline,
 }
 
+#[derive(Clone, PartialEq, Copy)]
+pub enum Direction {
+    Vertical,
+    Horizontal,
+}
+
 #[derive(Default, Clone, PartialEq)]
 pub struct CommonAttributes {
     pub display: Option<Display>,
+    pub direction: Option<Direction>,
     pub text_size: Option<Value>,
     pub text_color: Option<Color>,
     pub font_family: Option<Cow<'static, str>>,
     pub font_weight: Option<u32>,
     pub background_color: Option<Color>,
+    pub border_radius: Option<Value>,
     pub padding: Option<Value>,
+    pub margin: Option<Value>,
     pub width: Option<Value>,
     pub height: Option<Value>,
 }
@@ -77,6 +86,7 @@ pub struct InlineValues {}
 
 #[derive(PartialEq, Clone, Copy)]
 pub struct BlockValues {
+    pub direction: Direction,
     pub margin: LogicalSideOffsets,
     pub padding: LogicalSideOffsets,
     pub width: Option<LogicalLength>,
@@ -90,6 +100,7 @@ pub struct BlockValues {
 impl Default for BlockValues {
     fn default() -> Self {
         BlockValues {
+            direction: Direction::Vertical,
             margin: LogicalSideOffsets::new_all_same(0.0),
             padding: LogicalSideOffsets::new_all_same(0.0),
             width: None,
@@ -114,6 +125,7 @@ pub struct ComputedValues {
     pub text_size: LogicalLength,
     pub text_color: Color,
     pub background_color: Color,
+    pub border_radius: LogicalLength,
 }
 
 impl Default for ComputedValues {
@@ -123,6 +135,7 @@ impl Default for ComputedValues {
             text_size: LogicalLength::new(16.0),
             text_color: Color::black(),
             background_color: Color::clear(),
+            border_radius: LogicalLength::new(0.0),
         }
     }
 }
@@ -146,12 +159,22 @@ impl Style {
                 Display::Inline => values.display = DisplayType::Inline(InlineValues::default()),
             }
         }
+        if let Some(direction) = self.attributes.direction {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.direction = direction;
+            }
+        }
         if let Some(ref text_size) = self.attributes.text_size {
             values.text_size = text_size.resolve(&ctx);
         }
         if let Some(ref padding) = self.attributes.padding {
             if let DisplayType::Block(ref mut block) = values.display {
                 block.padding = LogicalSideOffsets::from_length_all_same(padding.resolve(&ctx));
+            }
+        }
+        if let Some(ref margin) = self.attributes.margin {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.margin = LogicalSideOffsets::from_length_all_same(margin.resolve(&ctx));
             }
         }
         if let Some(ref width) = self.attributes.width {
@@ -163,6 +186,9 @@ impl Style {
             if let DisplayType::Block(ref mut block) = values.display {
                 block.height = Some(height.resolve(&ctx));
             }
+        }
+        if let Some(ref border_radius) = self.attributes.border_radius {
+            values.border_radius = border_radius.resolve(&ctx);
         }
         if let Some(text_color) = self.attributes.text_color {
             values.text_color = text_color;
@@ -247,12 +273,15 @@ macro_rules! style_selector {
 
 pub const DEFAULT_ATTRIBUTES: CommonAttributes = CommonAttributes {
     display: None,
+    direction: None,
     text_size: None,
     text_color: None,
     font_family: None,
     font_weight: None,
     background_color: None,
+    border_radius: None,
     padding: None,
+    margin: None,
     width: None,
     height: None,
 };

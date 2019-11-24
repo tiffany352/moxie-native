@@ -1,17 +1,29 @@
-use super::{AttrClassName, AttrStyles, Element, Node, View};
+use super::{AttrClassName, AttrStyles, AttrTitle, Element, Node, View};
 use crate::style::Style;
 use std::borrow::Cow;
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Window {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
+    pub title: String,
+}
+
+impl Default for Window {
+    fn default() -> Self {
+        Window {
+            styles: Cow::default(),
+            class_name: None,
+            title: "Untitled Window".to_owned(),
+        }
+    }
 }
 
 crate::element_attributes! {
     Window {
         styles: AttrStyles,
         class_name: AttrClassName,
+        title: AttrTitle,
     }
 }
 

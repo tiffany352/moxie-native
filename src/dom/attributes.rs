@@ -14,3 +14,4 @@ macro_rules! attribute {
 
 attribute!(AttrStyles, Cow<'static, [&'static Style]>);
 attribute!(AttrClassName, Cow<'static, str>);
+attribute!(AttrTitle, String);

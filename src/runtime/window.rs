@@ -24,7 +24,7 @@ impl Window {
         proxy: EventLoopProxy<()>,
     ) -> Window {
         let window_builder = WindowBuilder::new()
-            .with_title("UI Lib")
+            .with_title(&dom_window.element().title[..])
             .with_decorations(true)
             .with_transparent(true);
 
@@ -64,7 +64,10 @@ impl Window {
     }
 
     pub fn set_dom_window(&mut self, new_node: Node<DomWindow>) {
-        self.context.set_dom_window(new_node)
+        self.gl_context
+            .window()
+            .set_title(&new_node.element().title[..]);
+        self.context.set_dom_window(new_node);
     }
 
     pub fn render(&mut self) {

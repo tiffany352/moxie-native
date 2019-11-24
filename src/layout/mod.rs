@@ -2,7 +2,7 @@
 //! arranging elements and performing text layout.
 
 use crate::dom::{element::children as get_children, Node, NodeChild, Window};
-use crate::style::{BlockValues, ComputedValues, DisplayType};
+use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -43,6 +43,7 @@ pub struct LayoutText {
 pub struct LayoutTreeNode {
     /// The computed size of the node.
     pub size: LogicalSize,
+    pub margin: LogicalSideOffsets,
     pub render_text: Option<LayoutText>,
     pub children: Vec<LayoutChild>,
 }
@@ -245,6 +246,7 @@ impl LayoutEngine {
                                     size: text.size,
                                 }),
                                 size: size2(width, this_line_height),
+                                margin: LogicalSideOffsets::default(),
                                 children: vec![],
                             }),
                         });
@@ -259,6 +261,7 @@ impl LayoutEngine {
         Rc::new(LayoutTreeNode {
             render_text: None,
             size: min_size,
+            margin: LogicalSideOffsets::default(),
             children: child_positions,
         })
     }
@@ -283,15 +286,24 @@ impl LayoutEngine {
         let mut child_positions = vec![];
         for (index, child) in children.iter().enumerate() {
             let child = child.clone();
-            let size = child.size;
-            width = width.max(size.width);
-            let size = child.size;
-            child_positions.push(LayoutChild {
-                index,
-                position: point2(values.padding.left, height + values.padding.top),
-                layout: child,
-            });
-            height += size.height;
+            let size = child.size + size2(child.margin.horizontal(), child.margin.vertical());
+            if values.direction == Direction::Vertical {
+                width = width.max(size.width);
+                child_positions.push(LayoutChild {
+                    index,
+                    position: point2(values.padding.left, height + values.padding.top),
+                    layout: child,
+                });
+                height += size.height;
+            } else {
+                height = height.max(size.height);
+                child_positions.push(LayoutChild {
+                    index,
+                    position: point2(width + values.padding.left, values.padding.top),
+                    layout: child,
+                });
+                width += size.width;
+            }
         }
 
         let mut size =
@@ -304,8 +316,11 @@ impl LayoutEngine {
             size.height = height.get();
         }
 
+        let margin = values.margin;
+
         Rc::new(LayoutTreeNode {
             size,
+            margin,
             children: child_positions,
             render_text: None,
         })
@@ -342,6 +357,7 @@ impl LayoutEngine {
                             let (_, width, height) = text.fill_line(999999.0, 0);
                             children.push(Rc::new(LayoutTreeNode {
                                 size: size2(width, height),
+                                margin: LogicalSideOffsets::default(),
                                 render_text: Some(LayoutText {
                                     text: text.text,
                                     size: text.size,

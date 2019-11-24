@@ -173,26 +173,33 @@ impl Context {
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
+        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+
         if let Some(ref values) = paint.values {
             if values.background_color.alpha > 0 {
-                let region =
-                    ComplexClipRegion::new(rect, BorderRadius::uniform(20.), ClipMode::Clip);
-                let clip = builder.define_clip(
-                    &SpaceAndClipInfo::root_scroll(pipeline_id),
-                    rect,
-                    vec![region],
-                    None,
-                );
-                builder.push_rect(
-                    &CommonItemProperties::new(
+                let item_props = if values.border_radius.get() > 0.0 {
+                    let region = ComplexClipRegion::new(
+                        rect,
+                        BorderRadius::uniform(values.border_radius.get()),
+                        ClipMode::Clip,
+                    );
+                    let clip = builder.define_clip(
+                        &SpaceAndClipInfo::root_scroll(pipeline_id),
+                        rect,
+                        vec![region],
+                        None,
+                    );
+                    CommonItemProperties::new(
                         rect,
                         SpaceAndClipInfo {
                             spatial_id: SpatialId::root_scroll_node(pipeline_id),
                             clip_id: clip,
                         },
-                    ),
-                    values.background_color.into(),
-                );
+                    )
+                } else {
+                    CommonItemProperties::new(rect, space_and_clip)
+                };
+                builder.push_rect(&item_props, values.background_color.into());
             }
         }
 
@@ -208,7 +215,6 @@ impl Context {
 
             let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
             let color = Color::new(0, 0, 0, 255);
-            let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
             builder.push_simple_stacking_context(
                 point2(0.0, 0.0),
                 space_and_clip.spatial_id,
