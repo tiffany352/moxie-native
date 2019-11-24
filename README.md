@@ -16,12 +16,13 @@ defining UI similar to React.
 - Declaratively specify UI instead of manually managing state.
 - Not based on immediate mode UI.
 - Targetted towards real world desktop applications.
+- Styling system for specifying the appearance of elements.
 
 ## Future plans
 
-- Styling (similar to CSS, but specified using Rust macros).
 - More powerful layouts (flexbox, flexgrid, etc).
 - More user input, such as text fields.
+- See here for the current roadmap: https://github.com/tiffany352/moxie-native/projects/1
 
 ## License
 
@@ -29,6 +30,6 @@ Mozilla Public License, version 2.
 
 ## Contributing
 
-- Agree to license your code under the terms of the license.
-- Follow the code of conduct.
-- Check the issues and projects tabs for things, or ask me (@tiffany352).
+- Agree to license your contribution under the terms of the [license](./LICENSE-MPL).
+- Follow the [code of conduct](./CODE_OF_CONDUCT.md).
+- Check the issues and projects tabs for things to work on, or ask me (@tiffany352).
