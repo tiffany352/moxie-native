@@ -1,8 +1,7 @@
-use crate::dom::{
-    element::children as get_children, ClickEvent, EventHandler, Node, NodeChild, Window,
-};
+use crate::dom::{element::children as get_children, element::NodeChild, ClickEvent, Node, Window};
 use crate::layout::LayoutTreeNode;
 use crate::style::ComputedValues;
+use crate::util::event_handler::EventHandler;
 use moxie::embed::Runtime;
 use std::rc::Rc;
 

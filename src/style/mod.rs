@@ -1,4 +1,4 @@
-use crate::dom::{element::children, Node, NodeChild, Window};
+use crate::dom::{element::children, element::NodeChild, Node, Window};
 use crate::layout::{LogicalLength, LogicalSideOffsets, LogicalSize};
 use crate::Color;
 use moxie::embed::Runtime;
@@ -30,6 +30,8 @@ impl Selector {
     }
 }
 
+/// Represents a position or size that can be specified in multiple
+/// units, which are resolved during styling.
 #[derive(Default, Clone, PartialEq)]
 pub struct Value {
     pub pixels: f32,
@@ -53,12 +55,16 @@ impl Value {
     }
 }
 
+/// Decides how a given element should be laid out.
 #[derive(Clone, PartialEq, Copy)]
 pub enum Display {
+    /// Treat each child as a box and place them in a linear list.
     Block,
+    /// Lay out elements with text wrapping.
     Inline,
 }
 
+/// Specifies which direction layout should be performed in.
 #[derive(Clone, PartialEq, Copy)]
 pub enum Direction {
     Vertical,
@@ -140,6 +146,8 @@ impl Default for ComputedValues {
     }
 }
 
+/// Affects the presentation of elements that are chosen based on the
+/// selector. See `style!` for how you define this.
 #[derive(Clone, PartialEq)]
 pub struct Style {
     pub selector: Selector,
@@ -261,6 +269,7 @@ impl StyleEngine {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! style_selector {
     (class_name == $value:expr) => {
@@ -286,6 +295,7 @@ pub const DEFAULT_ATTRIBUTES: CommonAttributes = CommonAttributes {
     height: None,
 };
 
+/// Macro for defining a style to be applied to an element.
 #[macro_export]
 macro_rules! style {
     ( ( $($selector:tt)+ ) => { $( $name:ident : $value:expr ),* $(,)* } ) => {
@@ -299,15 +309,4 @@ macro_rules! style {
             }
         }
     };
-}
-
-#[macro_export]
-macro_rules! styles {
-    ( $( ( $($selector:tt)+ ) => { $( $name:ident : $value:expr ),* $(,)* } ),* ) => {
-        &'static [
-            $(
-                style!(($($selector)+) => { $( $name : $value ),+ })
-            ),*
-        ]
-    }
 }

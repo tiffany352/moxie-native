@@ -1,9 +1,8 @@
+use crate::dom::element::Element;
 use crate::style::ComputedValues;
 use std::cell::{Cell, RefCell};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-
-use super::Element;
 
 struct NodeData<Elt>
 where

@@ -1,8 +1,6 @@
 #![recursion_limit = "256"]
 
-use moxie_native::dom::*;
-use moxie_native::moxie::*;
-use moxie_native::*;
+use moxie_native::prelude::*;
 
 const STYLES: &'static [&'static Style] = &[
     style! {

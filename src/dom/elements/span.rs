@@ -1,15 +1,18 @@
-use super::{AttrClassName, AttrStyles, Element};
+use crate::dom::element::Element;
+use crate::dom::{AttrClassName, AttrStyles};
 use crate::render::PaintDetails;
 use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 use std::borrow::Cow;
 
+/// Corresponds to <span>. This element is typically used for inline
+/// layout of text.
 #[derive(Default, Clone, PartialEq)]
 pub struct Span {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
 }
 
-crate::element_attributes! {
+element_attributes! {
     Span {
         styles: AttrStyles,
         class_name: AttrClassName,

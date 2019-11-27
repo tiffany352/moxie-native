@@ -1,7 +1,10 @@
-use super::{AttrClassName, AttrStyles, AttrTitle, Element, Node, View};
+use crate::dom::element::Element;
+use crate::dom::{AttrClassName, AttrStyles, AttrTitle, Node, View};
 use crate::style::Style;
 use std::borrow::Cow;
 
+/// Corresponds to <window>. This is the top-level container for UI and
+/// corresponds to an OS window.
 #[derive(Clone, PartialEq)]
 pub struct Window {
     styles: Cow<'static, [&'static Style]>,
@@ -19,7 +22,7 @@ impl Default for Window {
     }
 }
 
-crate::element_attributes! {
+element_attributes! {
     Window {
         styles: AttrStyles,
         class_name: AttrClassName,

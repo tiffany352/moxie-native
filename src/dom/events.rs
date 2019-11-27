@@ -1,4 +1,4 @@
-use super::Event;
+use super::element::Event;
 
 /// The element associated with this event was activated by the user.
 pub struct ClickEvent;

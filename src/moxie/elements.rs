@@ -1,4 +1,6 @@
-use crate::dom::{Attribute, Element, Event, EventHandler, HasAttribute, HasEvent, Node};
+use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
+use crate::dom::Node;
+use crate::util::event_handler::EventHandler;
 use moxie::*;
 
 /// Builder pattern for creating a DOM node, typically used from the

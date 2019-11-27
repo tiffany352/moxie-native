@@ -6,7 +6,7 @@ macro_rules! attribute {
         #[derive(Default)]
         pub struct $name;
 
-        impl crate::dom::Attribute for $name {
+        impl crate::dom::element::Attribute for $name {
             type Value = $value;
         }
     };

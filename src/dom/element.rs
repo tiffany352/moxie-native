@@ -1,6 +1,7 @@
-use super::{EventHandler, Node};
+use super::Node;
 use crate::render::PaintDetails;
 use crate::style::{ComputedValues, Style};
+use crate::util::event_handler::EventHandler;
 use std::any::TypeId;
 use std::cell::Cell;
 
@@ -173,3 +174,5 @@ impl NodeChild for String {
 }
 
 pub trait HandlerList: Default + 'static {}
+
+impl HandlerList for () {}

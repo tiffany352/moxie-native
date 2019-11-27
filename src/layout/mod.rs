@@ -1,8 +1,9 @@
 //! This module handles creating the layout tree, which includes
 //! arranging elements and performing text layout.
 
-use crate::dom::{element::children as get_children, Node, NodeChild, Window};
+use crate::dom::{element::children as get_children, element::NodeChild, Node, Window};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
+use crate::util::word_break_iter;
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -12,8 +13,6 @@ use moxie::*;
 use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
 use std::ptr;
 use std::rc::Rc;
-
-mod word_break_iter;
 
 pub struct LogicalPixel;
 pub type LogicalPoint = Point2D<f32, LogicalPixel>;

@@ -10,8 +10,7 @@
 //!
 //! To start up your application, define a component like so:
 //! ```rs
-//! use moxie::*;
-//! use moxie_native::dom::*;
+//! use moxie_native::prelude::*;
 //!
 //! #[topo::nested]
 //! fn app() -> Vec<Node<Window>> {
@@ -30,14 +29,15 @@
 //! runtime.start();
 //! ```
 
-pub mod color;
 pub mod dom;
 mod layout;
+#[doc(hidden)]
 pub mod moxie;
+pub mod prelude;
 mod render;
-pub mod runtime;
+mod runtime;
 pub mod style;
+mod util;
 
-pub use color::Color;
 pub use runtime::Runtime;
-pub use style::{Direction, Display, Style, Value};
+pub use util::color::Color;

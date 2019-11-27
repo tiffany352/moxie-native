@@ -1,17 +1,19 @@
-use super::{
-    AttrClassName, AttrStyles, ClickEvent, Element, EventHandler, HasEvent, Node, Span, View,
-};
+use crate::dom::element::{Element, HasEvent};
+use crate::dom::{AttrClassName, AttrStyles, ClickEvent, Node, Span, View};
 use crate::render::PaintDetails;
 use crate::style::Style;
+use crate::util::event_handler::EventHandler;
 use std::borrow::Cow;
 
+/// Corresponds to <button>. This element can be hovered and pressed,
+/// resulting in corresponding events.
 #[derive(Default, Clone, PartialEq)]
 pub struct Button {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
 }
 
-crate::multiple_children! {
+multiple_children! {
     enum ButtonChild {
         Button(Node<Button>),
         View(Node<View>),
@@ -19,14 +21,14 @@ crate::multiple_children! {
     }
 }
 
-crate::element_attributes! {
+element_attributes! {
     Button {
         styles: AttrStyles,
         class_name: AttrClassName,
     }
 }
 
-crate::element_handlers! {
+element_handlers! {
     ButtonHandlers for Button {
         on_click: ClickEvent,
     }

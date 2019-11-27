@@ -1,16 +1,18 @@
-use super::{AttrClassName, AttrStyles, Button, Element, Node, Span};
+use crate::dom::element::Element;
+use crate::dom::{AttrClassName, AttrStyles, Button, Node, Span};
 use crate::render::PaintDetails;
 use crate::style::{ComputedValues, Style};
 use crate::Color;
 use std::borrow::Cow;
 
+/// Corresponds to <view>. Generic frame for layout purposes.
 #[derive(Default, Clone, PartialEq)]
 pub struct View {
     styles: Cow<'static, [&'static Style]>,
     class_name: Option<Cow<'static, str>>,
 }
 
-crate::multiple_children! {
+multiple_children! {
     enum ViewChild {
         Button(Node<Button>),
         View(Node<View>),
@@ -18,7 +20,7 @@ crate::multiple_children! {
     }
 }
 
-crate::element_attributes! {
+element_attributes! {
     View {
         styles: AttrStyles,
         class_name: AttrClassName,
