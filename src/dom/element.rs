@@ -1,5 +1,5 @@
 use super::Node;
-use crate::render::PaintDetails;
+use crate::dom::input::InputEvent;
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
 use std::any::TypeId;
@@ -16,17 +16,15 @@ pub trait Element: Default + Clone + PartialEq + 'static {
         Default::default()
     }
 
+    fn process(&self, _handlers: &mut Self::Handlers, _event: &InputEvent) -> bool {
+        false
+    }
+
     /// Returns the class_name attribute.
     fn class_name(&self) -> Option<&str>;
 
     /// Returns the list of styles attached to this element.
     fn styles(&self) -> &[&'static Style];
-
-    /// Describes how this element should be displayed on the screen.
-    /// Return None for this element to only affect layout.
-    fn paint(&self, _handlers: &Self::Handlers) -> Option<PaintDetails> {
-        None
-    }
 }
 
 /// The trait representing all events that can be invoked on an element.
@@ -63,8 +61,6 @@ where
 /// a sort of visitor pattern which lets the DOM be walked without
 /// having to know the types of each element at each step.
 pub trait NodeChild: 'static {
-    /// Typically a pass-through to `Element::paint()`.
-    fn paint(&self) -> Option<PaintDetails>;
     /// Returns a trait object for the child at the given index. If the
     /// index is out of bounds, return None. Typically maps to
     /// `Element::children().get(index)`.
@@ -73,6 +69,8 @@ pub trait NodeChild: 'static {
     fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str>;
 
     fn type_id(&self) -> TypeId;
+
+    fn process(&self, event: &InputEvent) -> bool;
 
     fn class_name(&self) -> Option<&str>;
 
@@ -110,10 +108,6 @@ impl<Elt> NodeChild for Node<Elt>
 where
     Elt: Element,
 {
-    fn paint(&self) -> Option<PaintDetails> {
-        self.element().paint(&*self.handlers().borrow())
-    }
-
     fn get_child(&self, child: usize) -> Option<&dyn NodeChild> {
         if let Some(child) = self.children().get(child) {
             Some(child)
@@ -130,6 +124,11 @@ where
         TypeId::of::<Elt>()
     }
 
+    fn process(&self, event: &InputEvent) -> bool {
+        let mut handlers = self.handlers().borrow_mut();
+        self.element().process(&mut *handlers, event)
+    }
+
     fn class_name(&self) -> Option<&str> {
         self.element().class_name()
     }
@@ -144,10 +143,6 @@ where
 }
 
 impl NodeChild for String {
-    fn paint(&self) -> Option<PaintDetails> {
-        Some(PaintDetails::default())
-    }
-
     fn get_child(&self, _child: usize) -> Option<&dyn NodeChild> {
         None
     }
@@ -158,6 +153,10 @@ impl NodeChild for String {
 
     fn type_id(&self) -> TypeId {
         TypeId::of::<String>()
+    }
+
+    fn process(&self, _event: &InputEvent) -> bool {
+        false
     }
 
     fn class_name(&self) -> Option<&str> {

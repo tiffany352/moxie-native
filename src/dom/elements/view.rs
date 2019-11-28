@@ -1,6 +1,5 @@
 use crate::dom::element::Element;
 use crate::dom::{AttrClassName, AttrStyles, Button, Node, Span};
-use crate::render::PaintDetails;
 use crate::style::{ComputedValues, Style};
 use crate::Color;
 use std::borrow::Cow;
@@ -30,10 +29,6 @@ element_attributes! {
 impl Element for View {
     type Child = ViewChild;
     type Handlers = ();
-
-    fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
-        Some(PaintDetails::default())
-    }
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())

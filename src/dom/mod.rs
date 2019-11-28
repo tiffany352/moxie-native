@@ -6,6 +6,7 @@ pub mod attributes;
 pub mod element;
 pub mod elements;
 pub mod events;
+pub mod input;
 pub mod node;
 
 pub use attributes::*;

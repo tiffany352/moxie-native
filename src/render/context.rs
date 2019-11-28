@@ -1,6 +1,6 @@
-use super::engine::{PaintTreeNode, RenderEngine};
-use crate::dom::{ClickEvent, Node, Window};
-use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalPoint};
+use crate::dom::input::InputEvent;
+use crate::dom::{element::NodeChild, Node, Window};
+use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::style::StyleEngine;
 use crate::Color;
 use font_kit::family_name::FamilyName;
@@ -21,11 +21,7 @@ use webrender::{
     euclid::{point2, size2, vec2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
 };
-use winit::{
-    dpi::{LogicalPosition as WinitLogicalPosition, PhysicalSize},
-    event_loop::EventLoopProxy,
-    window::Window as WinitWindow,
-};
+use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window as WinitWindow};
 
 /// Used to wait for frames to be ready in Webrender.
 #[derive(Clone)]
@@ -60,7 +56,6 @@ pub struct Context {
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
     layout_engine: LayoutEngine,
-    render_engine: RenderEngine,
     style_engine: StyleEngine,
     window: Node<Window>,
     client_size: Size2D<i32, DevicePixel>,
@@ -106,7 +101,6 @@ impl Context {
             renderer,
             window,
             layout_engine: LayoutEngine::new(),
-            render_engine: RenderEngine::new(),
             style_engine: StyleEngine::new(),
             client_size,
             dpi_scale,
@@ -168,14 +162,16 @@ impl Context {
         builder: &mut DisplayListBuilder,
         transaction: &mut Transaction,
         position: Point2D<f32, LogicalPixel>,
-        paint: &PaintTreeNode,
+        node: &dyn NodeChild,
         layout: &Rc<LayoutTreeNode>,
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
         let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
-        if let Some(ref values) = paint.values {
+        let values = node.computed_values().ok().and_then(|x| x.get());
+
+        if let Some(values) = values {
             if values.background_color.alpha > 0 {
                 let item_props = if values.border_radius.get() > 0.0 {
                     let region = ComplexClipRegion::new(
@@ -248,13 +244,13 @@ impl Context {
         }
 
         for layout in &layout.children {
-            let paint = &paint.children[layout.index];
+            let child = node.get_child(layout.index).expect("child to exist");
             self.render_child(
                 pipeline_id,
                 builder,
                 transaction,
                 position + layout.position.to_vector(),
-                paint,
+                child,
                 &layout.layout,
             );
         }
@@ -277,18 +273,14 @@ impl Context {
             .layout_engine
             .layout(self.window.clone(), content_size * Scale::new(1.0));
 
-        let root_paint = self
-            .render_engine
-            .render(self.window.clone(), root_layout.clone());
-
         for layout in &root_layout.children {
-            let details = &root_paint.children[layout.index];
+            let child = self.window.children()[layout.index].clone();
             self.render_child(
                 pipeline_id,
                 &mut builder,
                 &mut transaction,
                 layout.position,
-                details,
+                &child,
                 &layout.layout,
             );
         }
@@ -309,29 +301,33 @@ impl Context {
     }
 
     pub fn process_child(
-        &mut self,
-        cursor: LogicalPoint,
+        &self,
+        event: &InputEvent,
         position: Point2D<f32, LogicalPixel>,
-        paint: &PaintTreeNode,
+        node: &dyn NodeChild,
         layout: &Rc<LayoutTreeNode>,
     ) -> bool {
-        let rect = Rect::new(position, layout.size) * Scale::new(1.0);
+        let rect = Rect::new(position, layout.size);
 
         for layout in &layout.children {
-            let paint = &paint.children[layout.index];
+            let child = node.get_child(layout.index).expect("child to exist");
             if self.process_child(
-                cursor,
+                event,
                 position + layout.position.to_vector(),
-                paint,
+                child,
                 &layout.layout,
             ) {
                 return true;
             }
         }
 
-        if let Some(ref details) = paint.details {
-            if rect.contains(cursor) && details.on_click.present() {
-                details.on_click.invoke(&ClickEvent);
+        let do_process = match event.get_position() {
+            Some((x, y)) => rect.contains(point2(x, y)),
+            None => true,
+        };
+
+        if do_process {
+            if node.process(event) {
                 return true;
             }
         }
@@ -339,11 +335,10 @@ impl Context {
         false
     }
 
-    pub fn process_click(&mut self, position: WinitLogicalPosition) -> bool {
+    pub fn process(&mut self, event: &InputEvent) -> bool {
         let client_size = self.client_size;
         let dpi_scale = Scale::new(self.dpi_scale);
         let content_size: Size2D<f32, LayoutPixel> = client_size.to_f32() / dpi_scale;
-        let position: LogicalPoint = point2(position.x as f32, position.y as f32);
 
         self.style_engine
             .update(self.window.clone(), content_size * Scale::new(1.0));
@@ -352,13 +347,9 @@ impl Context {
             .layout_engine
             .layout(self.window.clone(), content_size * Scale::new(1.0));
 
-        let root_paint = self
-            .render_engine
-            .render(self.window.clone(), root_layout.clone());
-
         for layout in &root_layout.children {
-            let details = &root_paint.children[layout.index];
-            if self.process_child(position, layout.position, details, &layout.layout) {
+            let child = &self.window.children()[layout.index];
+            if self.process_child(event, layout.position, child, &layout.layout) {
                 return true;
             }
         }

@@ -1,6 +1,5 @@
 use crate::dom::element::Element;
 use crate::dom::{AttrClassName, AttrStyles};
-use crate::render::PaintDetails;
 use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 use std::borrow::Cow;
 
@@ -22,10 +21,6 @@ element_attributes! {
 impl Element for Span {
     type Child = String;
     type Handlers = ();
-
-    fn paint(&self, _handlers: &()) -> Option<PaintDetails> {
-        None
-    }
 
     fn create_computed_values(&self) -> ComputedValues {
         ComputedValues {

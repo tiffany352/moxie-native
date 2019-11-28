@@ -1,3 +1,4 @@
+use crate::dom::input;
 use crate::dom::{Node, Window as DomWindow};
 use crate::render::Context;
 use gleam::gl;
@@ -88,11 +89,26 @@ impl Window {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_pos = position;
+                let event = input::InputEvent::MouseMove {
+                    x: self.cursor_pos.x as f32,
+                    y: self.cursor_pos.y as f32,
+                };
+                return self.context.process(&event);
             }
-            WindowEvent::MouseInput { state, button, .. } => {
-                if state == ElementState::Pressed && button == MouseButton::Left {
-                    return self.context.process_click(self.cursor_pos);
-                }
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                let event = input::InputEvent::MouseLeft {
+                    state: match state {
+                        ElementState::Pressed => input::State::Begin,
+                        ElementState::Released => input::State::End,
+                    },
+                    x: self.cursor_pos.x as f32,
+                    y: self.cursor_pos.y as f32,
+                };
+                return self.context.process(&event);
             }
             _ => (),
         }

@@ -1,6 +1,6 @@
 use crate::dom::element::{Element, HasEvent};
+use crate::dom::input::{InputEvent, State};
 use crate::dom::{AttrClassName, AttrStyles, ClickEvent, Node, Span, View};
-use crate::render::PaintDetails;
 use crate::style::Style;
 use crate::util::event_handler::EventHandler;
 use std::borrow::Cow;
@@ -38,11 +38,17 @@ impl Element for Button {
     type Child = ButtonChild;
     type Handlers = ButtonHandlers;
 
-    fn paint(&self, handlers: &ButtonHandlers) -> Option<PaintDetails> {
-        Some(PaintDetails {
-            on_click: handlers.on_click.clone(),
-            ..Default::default()
-        })
+    fn process(&self, handlers: &mut Self::Handlers, event: &InputEvent) -> bool {
+        match event {
+            InputEvent::MouseLeft {
+                state: State::Begin,
+                ..
+            } => {
+                handlers.on_click.invoke(&ClickEvent);
+                true
+            }
+            _ => false,
+        }
     }
 
     fn class_name(&self) -> Option<&str> {

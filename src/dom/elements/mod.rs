@@ -18,14 +18,6 @@ macro_rules! multiple_children {
         )+
 
         impl $crate::dom::element::NodeChild for $name {
-            fn paint(&self) -> Option<$crate::render::PaintDetails> {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.paint()
-                    ),+
-                }
-            }
-
             fn get_child(&self, child: usize) -> Option<&dyn $crate::dom::element::NodeChild> {
                 match self {
                     $(
@@ -46,6 +38,14 @@ macro_rules! multiple_children {
                 match self {
                     $(
                         $name::$var_name(_) => ::std::any::TypeId::of::<$var_ty>()
+                    ),+
+                }
+            }
+
+            fn process(&self, event: &$crate::dom::input::InputEvent) -> bool {
+                match self {
+                    $(
+                        $name::$var_name(elt) => elt.process(event)
                     ),+
                 }
             }
