@@ -2,35 +2,7 @@ use crate::dom::{element::children, element::NodeChild, Node, Window};
 use crate::layout::{LogicalLength, LogicalSideOffsets, LogicalSize};
 use crate::Color;
 use moxie::embed::Runtime;
-use std::any::TypeId;
 use std::borrow::Cow;
-
-#[derive(Clone, PartialEq)]
-pub enum Selector {
-    ElementType(TypeId),
-    ClassName(&'static str),
-    State(&'static str),
-    HasParent(&'static Selector),
-    HasAncestor(&'static Selector),
-    IsFirstChild,
-    IsLastChild,
-    IsEvenChild,
-    IsOddChild,
-}
-
-impl Selector {
-    pub fn select(&self, node: &dyn NodeChild) -> bool {
-        match self {
-            Selector::ElementType(type_id) => node.type_id() == *type_id,
-            Selector::ClassName(class) => node
-                .class_name()
-                .map(|value| value == *class)
-                .unwrap_or(false),
-            Selector::State(state) => node.has_state(state),
-            _ => unimplemented!(),
-        }
-    }
-}
 
 /// Represents a position or size that can be specified in multiple
 /// units, which are resolved during styling.
@@ -87,6 +59,59 @@ pub struct CommonAttributes {
     pub margin: Option<Value>,
     pub width: Option<Value>,
     pub height: Option<Value>,
+}
+
+impl CommonAttributes {
+    #[topo::from_env(viewport_size: &LogicalSize)]
+    fn apply(&self, values: &mut ComputedValues) {
+        let ctx = ValueContext {
+            pixels_per_em: 16.0, // todo
+            viewport: *viewport_size,
+        };
+        if let Some(display) = self.display {
+            match display {
+                Display::Block => values.display = DisplayType::Block(BlockValues::default()),
+                Display::Inline => values.display = DisplayType::Inline(InlineValues::default()),
+            }
+        }
+        if let Some(direction) = self.direction {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.direction = direction;
+            }
+        }
+        if let Some(ref text_size) = self.text_size {
+            values.text_size = text_size.resolve(&ctx);
+        }
+        if let Some(ref padding) = self.padding {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.padding = LogicalSideOffsets::from_length_all_same(padding.resolve(&ctx));
+            }
+        }
+        if let Some(ref margin) = self.margin {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.margin = LogicalSideOffsets::from_length_all_same(margin.resolve(&ctx));
+            }
+        }
+        if let Some(ref width) = self.width {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.width = Some(width.resolve(&ctx));
+            }
+        }
+        if let Some(ref height) = self.height {
+            if let DisplayType::Block(ref mut block) = values.display {
+                block.height = Some(height.resolve(&ctx));
+            }
+        }
+        if let Some(ref border_radius) = self.border_radius {
+            values.border_radius = border_radius.resolve(&ctx);
+        }
+        if let Some(text_color) = self.text_color {
+            values.text_color = text_color;
+        }
+        if let Some(background_color) = self.background_color {
+            values.background_color = background_color;
+        }
+    }
 }
 
 #[derive(Default, PartialEq, Clone, Copy)]
@@ -148,76 +173,25 @@ impl Default for ComputedValues {
     }
 }
 
-/// Affects the presentation of elements that are chosen based on the
-/// selector. See `style!` for how you define this.
-#[derive(Clone)]
-pub struct Style {
+pub struct SubStyle {
     pub selector: fn(&dyn NodeChild) -> bool,
     pub attributes: CommonAttributes,
 }
 
+/// Affects the presentation of elements that are chosen based on the
+/// selector. See `style!` for how you define this.
+pub struct StyleData {
+    pub attributes: CommonAttributes,
+    pub sub_styles: &'static [SubStyle],
+}
+
+#[derive(Copy, Clone)]
+pub struct Style(pub &'static StyleData);
+
 impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        self.attributes == other.attributes
+    fn eq(&self, other: &Style) -> bool {
+        std::ptr::eq(self.0 as *const StyleData, other.0 as *const StyleData)
     }
-}
-
-impl Style {
-    #[topo::from_env(viewport_size: &LogicalSize)]
-    fn apply(&self, values: &mut ComputedValues) {
-        let ctx = ValueContext {
-            pixels_per_em: 16.0, // todo
-            viewport: *viewport_size,
-        };
-        if let Some(display) = self.attributes.display {
-            match display {
-                Display::Block => values.display = DisplayType::Block(BlockValues::default()),
-                Display::Inline => values.display = DisplayType::Inline(InlineValues::default()),
-            }
-        }
-        if let Some(direction) = self.attributes.direction {
-            if let DisplayType::Block(ref mut block) = values.display {
-                block.direction = direction;
-            }
-        }
-        if let Some(ref text_size) = self.attributes.text_size {
-            values.text_size = text_size.resolve(&ctx);
-        }
-        if let Some(ref padding) = self.attributes.padding {
-            if let DisplayType::Block(ref mut block) = values.display {
-                block.padding = LogicalSideOffsets::from_length_all_same(padding.resolve(&ctx));
-            }
-        }
-        if let Some(ref margin) = self.attributes.margin {
-            if let DisplayType::Block(ref mut block) = values.display {
-                block.margin = LogicalSideOffsets::from_length_all_same(margin.resolve(&ctx));
-            }
-        }
-        if let Some(ref width) = self.attributes.width {
-            if let DisplayType::Block(ref mut block) = values.display {
-                block.width = Some(width.resolve(&ctx));
-            }
-        }
-        if let Some(ref height) = self.attributes.height {
-            if let DisplayType::Block(ref mut block) = values.display {
-                block.height = Some(height.resolve(&ctx));
-            }
-        }
-        if let Some(ref border_radius) = self.attributes.border_radius {
-            values.border_radius = border_radius.resolve(&ctx);
-        }
-        if let Some(text_color) = self.attributes.text_color {
-            values.text_color = text_color;
-        }
-        if let Some(background_color) = self.attributes.background_color {
-            values.background_color = background_color;
-        }
-    }
-}
-
-struct StyleChain<'a> {
-    styles: &'a [&'static Style],
-    parent: Option<&'a StyleChain<'a>>,
 }
 
 /// Used to annotate the node tree with computed values from styling.
@@ -232,37 +206,31 @@ impl StyleEngine {
         }
     }
 
-    fn apply_style(node: &dyn NodeChild, chain: &StyleChain, values: &mut ComputedValues) {
-        if let Some(parent) = chain.parent {
-            Self::apply_style(node, parent, values);
-        }
-        for style in chain.styles {
-            if (style.selector)(node) {
-                style.apply(values);
+    fn update_style(node: &dyn NodeChild) {
+        let mut computed = node.create_computed_values();
+
+        let style = node.style();
+        if let Some(Style(style)) = style {
+            style.attributes.apply(&mut computed);
+            for sub_style in style.sub_styles {
+                if (sub_style.selector)(node) {
+                    sub_style.attributes.apply(&mut computed);
+                }
             }
         }
-    }
 
-    fn update_style(node: &dyn NodeChild, chain: Option<&StyleChain>) {
-        let chain = StyleChain {
-            parent: chain,
-            styles: node.styles(),
-        };
-
-        let mut computed = node.create_computed_values();
-        Self::apply_style(node, &chain, &mut computed);
         if let Ok(values) = node.computed_values() {
             values.set(Some(computed));
         }
 
         for child in children(node) {
-            Self::update_style(child, Some(&chain));
+            Self::update_style(child);
         }
     }
 
     #[topo::from_env(node: &Node<Window>)]
     fn run_styling() {
-        Self::update_style(node, None);
+        Self::update_style(node);
     }
 
     /// Update the node tree with computed values.

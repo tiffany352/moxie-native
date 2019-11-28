@@ -20,7 +20,6 @@ pub fn define_style(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 enum Selector {
     Element(Ident),
-    Class(Ident),
     State(Ident),
 }
 
@@ -32,15 +31,11 @@ impl Parse for Selector {
                 input.parse::<Token![:]>()?;
                 Ok(Selector::Element(input.parse()?))
             }
-            "class" => {
-                input.parse::<Token![:]>()?;
-                Ok(Selector::Class(input.parse()?))
-            }
             "state" => {
                 input.parse::<Token![:]>()?;
                 Ok(Selector::State(input.parse()?))
             }
-            _ => Err(Error::new(ident.span(), "Expected identifier")),
+            _ => Err(Error::new(ident.span(), "Expected a valid selector")),
         }
     }
 }
@@ -48,7 +43,6 @@ impl Parse for Selector {
 impl ToTokens for Selector {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
-            Selector::Class(ident) => quote!(node.class_name() == Some(stringify!(#ident))),
             Selector::Element(ident) => {
                 quote!(node.type_id() == ::std::any::TypeId::of::<::moxie_native::dom::#ident>())
             }
@@ -392,13 +386,14 @@ impl ToTokens for Attribute {
     }
 }
 
-struct Style {
+struct SubStyle {
     selectors: Vec<Selector>,
     attributes: Punctuated<Attribute, Token![,]>,
 }
 
-impl Parse for Style {
+impl Parse for SubStyle {
     fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Token![if]>()?;
         let mut selectors = vec![];
         loop {
             selectors.push(input.parse::<Selector>()?);
@@ -409,26 +404,75 @@ impl Parse for Style {
         let content;
         braced!(content in input);
         let attributes = content.parse_terminated(Attribute::parse)?;
-        Ok(Style {
+        Ok(SubStyle {
             selectors,
             attributes,
         })
     }
 }
 
-impl ToTokens for Style {
+impl ToTokens for SubStyle {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let selectors = &self.selectors;
         let attributes = self.attributes.iter().collect::<Vec<_>>();
-        tokens.extend(quote!(&::moxie_native::style::Style {
-            selector: |node: &dyn ::moxie_native::dom::element::NodeChild| -> bool {
-                #(#selectors)&&*
-            },
-            attributes: ::moxie_native::style::CommonAttributes {
-                #(#attributes),*,
-                .. ::moxie_native::style::DEFAULT_ATTRIBUTES
+        tokens.extend(quote!(
+            ::moxie_native::style::SubStyle {
+                selector: |node: &dyn ::moxie_native::dom::element::NodeChild| -> bool {
+                    #(#selectors)&&*
+                },
+                attributes: ::moxie_native::style::CommonAttributes {
+                    #(#attributes),*,
+                    .. ::moxie_native::style::DEFAULT_ATTRIBUTES
+                }
             }
-        }))
+        ))
+    }
+}
+
+struct Style {
+    attributes: Vec<Attribute>,
+    sub_styles: Vec<SubStyle>,
+}
+
+impl Parse for Style {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut attributes = vec![];
+        loop {
+            if input.peek(token::If) || input.is_empty() {
+                break;
+            }
+            attributes.push(input.parse()?);
+            if !input.peek(token::Comma) {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+        }
+        let mut sub_styles = vec![];
+        while input.peek(token::If) {
+            sub_styles.push(input.parse()?);
+        }
+        Ok(Style {
+            attributes,
+            sub_styles,
+        })
+    }
+}
+
+impl ToTokens for Style {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let attributes = self.attributes.iter().collect::<Vec<_>>();
+        let sub_styles = &self.sub_styles;
+        tokens.extend(quote!(
+            ::moxie_native::style::Style(&::moxie_native::style::StyleData {
+                attributes: ::moxie_native::style::CommonAttributes {
+                    #(#attributes),*,
+                    .. ::moxie_native::style::DEFAULT_ATTRIBUTES
+                },
+                sub_styles: &[
+                    #(#sub_styles),*
+                ],
+            }
+        )))
     }
 }
 

@@ -1,5 +1,4 @@
 use crate::style::Style;
-use std::borrow::Cow;
 
 macro_rules! attribute {
     ($name:ident, $value:ty) => {
@@ -12,6 +11,5 @@ macro_rules! attribute {
     };
 }
 
-attribute!(AttrStyles, Cow<'static, [&'static Style]>);
-attribute!(AttrClassName, Cow<'static, str>);
+attribute!(AttrStyle, Option<Style>);
 attribute!(AttrTitle, String);

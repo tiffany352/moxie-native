@@ -2,27 +2,26 @@
 
 use moxie_native::prelude::*;
 
-const STYLES: &'static [&'static Style] = &[
-    define_style! {
-        class: row {
-            width: 100 vw,
-            height: 20 vh,
-            direction: horizontal,
-            background_color: rgba(0, 0, 0, 0),
-            text_size: 25 px,
-            padding: 4 px,
-        }
-    },
-    define_style! {
-        class: button {
-            width: 25 vw - 8 px,
-            height: 20 vh - 8 px,
-            background_color: rgb(200, 200, 200),
-            padding: 10 px,
-            margin: 4 px,
-        }
-    },
-];
+const ROW_STYLE: Style = define_style! {
+    width: 100 vw,
+    height: 20 vh,
+    direction: horizontal,
+    background_color: rgba(0, 0, 0, 0),
+    text_size: 25 px,
+    padding: 4 px,
+};
+
+const BUTTON_STYLE: Style = define_style! {
+    width: 25 vw - 8 px,
+    height: 20 vh - 8 px,
+    background_color: rgb(200, 200, 200),
+    padding: 10 px,
+    margin: 4 px,
+
+    if state: hover {
+        background_color: rgb(238, 238, 238),
+    }
+};
 
 #[derive(Clone, PartialEq, Copy)]
 enum Op {
@@ -147,63 +146,63 @@ fn app() -> Vec<Node<Window>> {
     };
 
     vec![mox! {
-        <window styles={STYLES} title="Moxie-Native Calculator">
-            <view class_name="row">
+        <window title="Moxie-Native Calculator">
+            <view style={ROW_STYLE}>
                 <span>{% "{}", state.display()}</span>
             </view>
-            <view class_name="row">
-                <button class_name="button" on={make_digit_handler(7)}>
+            <view style={ROW_STYLE}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(7)}>
                     <span>"7"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(8)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(8)}>
                     <span>"8"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(9)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(9)}>
                     <span>"9"</span>
                 </button>
-                <button class_name="button" on={make_op_handler(Op::Mul)}>
+                <button style={BUTTON_STYLE} on={make_op_handler(Op::Mul)}>
                     <span>"*"</span>
                 </button>
             </view>
-            <view class_name="row">
-                <button class_name="button" on={make_digit_handler(4)}>
+            <view style={ROW_STYLE}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(4)}>
                     <span>"4"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(5)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(5)}>
                     <span>"5"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(6)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(6)}>
                     <span>"6"</span>
                 </button>
-                <button class_name="button" on={make_op_handler(Op::Div)}>
+                <button style={BUTTON_STYLE} on={make_op_handler(Op::Div)}>
                     <span>"/"</span>
                 </button>
             </view>
-            <view class_name="row">
-                <button class_name="button" on={make_digit_handler(1)}>
+            <view style={ROW_STYLE}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(1)}>
                     <span>"1"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(2)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(2)}>
                     <span>"2"</span>
                 </button>
-                <button class_name="button" on={make_digit_handler(3)}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(3)}>
                     <span>"3"</span>
                 </button>
-                <button class_name="button" on={make_op_handler(Op::Add)}>
+                <button style={BUTTON_STYLE} on={make_op_handler(Op::Add)}>
                     <span>"+"</span>
                 </button>
             </view>
-            <view class_name="row">
-                <button class_name="button" on={make_digit_handler(0)}>
+            <view style={ROW_STYLE}>
+                <button style={BUTTON_STYLE} on={make_digit_handler(0)}>
                     <span>"0"</span>
                 </button>
-                <button class_name="button" on={on_equals}>
+                <button style={BUTTON_STYLE} on={on_equals}>
                     <span>"="</span>
                 </button>
-                <button class_name="button" on={on_clear}>
+                <button style={BUTTON_STYLE} on={on_clear}>
                     <span>"C"</span>
                 </button>
-                <button class_name="button" on={make_op_handler(Op::Sub)}>
+                <button style={BUTTON_STYLE} on={make_op_handler(Op::Sub)}>
                     <span>"-"</span>
                 </button>
             </view>

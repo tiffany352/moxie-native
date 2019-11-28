@@ -1,22 +1,19 @@
 use crate::dom::element::Element;
-use crate::dom::{AttrClassName, AttrStyles, AttrTitle, Node, View};
+use crate::dom::{AttrStyle, AttrTitle, Node, View};
 use crate::style::Style;
-use std::borrow::Cow;
 
 /// Corresponds to <window>. This is the top-level container for UI and
 /// corresponds to an OS window.
 #[derive(Clone, PartialEq)]
 pub struct Window {
-    styles: Cow<'static, [&'static Style]>,
-    class_name: Option<Cow<'static, str>>,
+    style: Option<Style>,
     pub title: String,
 }
 
 impl Default for Window {
     fn default() -> Self {
         Window {
-            styles: Cow::default(),
-            class_name: None,
+            style: None,
             title: "Untitled Window".to_owned(),
         }
     }
@@ -24,8 +21,7 @@ impl Default for Window {
 
 element_attributes! {
     Window {
-        styles: AttrStyles,
-        class_name: AttrClassName,
+        style: AttrStyle,
         title: AttrTitle,
     }
 }
@@ -35,11 +31,7 @@ impl Element for Window {
     type Handlers = ();
     type States = ();
 
-    fn class_name(&self) -> Option<&str> {
-        self.class_name.as_ref().map(|cow| cow.as_ref())
-    }
-
-    fn styles(&self) -> &[&'static Style] {
-        self.styles.as_ref()
+    fn style(&self) -> Option<Style> {
+        self.style
     }
 }

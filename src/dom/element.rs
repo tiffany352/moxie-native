@@ -26,11 +26,8 @@ pub trait Element: Default + Clone + PartialEq + 'static {
         (false, states)
     }
 
-    /// Returns the class_name attribute.
-    fn class_name(&self) -> Option<&str>;
-
     /// Returns the list of styles attached to this element.
-    fn styles(&self) -> &[&'static Style];
+    fn style(&self) -> Option<Style>;
 }
 
 /// The trait representing all events that can be invoked on an element.
@@ -90,9 +87,7 @@ pub trait NodeChild: 'static {
 
     fn has_state(&self, name: &str) -> bool;
 
-    fn class_name(&self) -> Option<&str>;
-
-    fn styles(&self) -> &[&'static Style];
+    fn style(&self) -> Option<Style>;
 
     fn create_computed_values(&self) -> ComputedValues;
 }
@@ -154,12 +149,8 @@ where
         self.states().get().has_state(name)
     }
 
-    fn class_name(&self) -> Option<&str> {
-        self.element().class_name()
-    }
-
-    fn styles(&self) -> &[&'static Style] {
-        self.element().styles()
+    fn style(&self) -> Option<Style> {
+        self.element().style()
     }
 
     fn create_computed_values(&self) -> ComputedValues {
@@ -188,12 +179,8 @@ impl NodeChild for String {
         false
     }
 
-    fn class_name(&self) -> Option<&str> {
+    fn style(&self) -> Option<Style> {
         None
-    }
-
-    fn styles(&self) -> &[&'static Style] {
-        &[]
     }
 
     fn create_computed_values(&self) -> ComputedValues {

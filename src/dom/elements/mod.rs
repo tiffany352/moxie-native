@@ -58,18 +58,10 @@ macro_rules! multiple_children {
                 }
             }
 
-            fn class_name(&self) -> Option<&str> {
+            fn style(&self) -> Option<$crate::style::Style> {
                 match self {
                     $(
-                        $name::$var_name(elt) => elt.class_name()
-                    ),+
-                }
-            }
-
-            fn styles(&self) -> &[&'static $crate::style::Style] {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.styles()
+                        $name::$var_name(elt) => elt.style()
                     ),+
                 }
             }

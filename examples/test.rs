@@ -2,39 +2,31 @@
 
 use moxie_native::prelude::*;
 
-const STYLES: &'static [&'static Style] = &[
-    define_style! {
-        class: container {
-            padding: 10 px,
-        }
-    },
-    define_style! {
-        class: h1 {
-            text_size: 20 px,
-        }
-    },
-    define_style! {
-        class: button {
-            background_color: rgb(238, 238, 238),
-        }
-    },
-    define_style! {
-        class: view1 {
-            background_color: rgb(255, 0, 0),
-            display: block,
-            width: 200 px,
-            height: 200 px,
-        }
-    },
-    define_style! {
-        class: view2 {
-            background_color: rgb(0, 255, 0),
-            display: block,
-            width: 250 px,
-            height: 150 px,
-        }
-    },
-];
+const CONTAINER_STYLE: Style = define_style! {
+    padding: 10 px,
+};
+
+const H1_STYLE: Style = define_style! {
+    text_size: 20 px,
+};
+
+const BUTTON_STYLE: Style = define_style! {
+    background_color: rgb(238, 238, 238),
+};
+
+const VIEW1_STYLE: Style = define_style! {
+    background_color: rgb(255, 0, 0),
+    display: block,
+    width: 200 px,
+    height: 200 px,
+};
+
+const VIEW2_STYLE: Style = define_style! {
+    background_color: rgb(0, 255, 0),
+    display: block,
+    width: 250 px,
+    height: 150 px,
+};
 
 #[topo::nested]
 fn foo() -> Vec<Node<Window>> {
@@ -46,22 +38,22 @@ fn foo() -> Vec<Node<Window>> {
     };
 
     vec![mox! {
-        <window styles={STYLES}>
-            <view class_name="container">
-                <span class_name="h1">
+        <window>
+            <view style={CONTAINER_STYLE}>
+                <span style={H1_STYLE}>
                     "Bigger Te" "xt"
                 </span>
                 <span>
                     "foo bar baz"
                     " the quick brown fox jumps over the lazy dog"
                 </span>
-                <button on={on_click} class_name="button">
+                <button on={on_click} style={BUTTON_STYLE}>
                     <span>
                         "Clicked " {% "{}", click_count} " times)"
                     </span>
                 </button>
-                <view class_name="view1"></view>
-                <view class_name="view2"></view>
+                <view style={VIEW1_STYLE}></view>
+                <view style={VIEW2_STYLE}></view>
             </view>
         </window>
     }]
