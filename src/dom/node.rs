@@ -10,6 +10,7 @@ where
 {
     element: Elt,
     handlers: RefCell<Elt::Handlers>,
+    states: Cell<Elt::States>,
     computed_values: Cell<Option<ComputedValues>>,
     children: Vec<Elt::Child>,
 }
@@ -22,6 +23,7 @@ where
         NodeData {
             element: element,
             handlers: RefCell::new(Default::default()),
+            states: Cell::new(Default::default()),
             computed_values: Cell::new(None),
             children: children,
         }
@@ -49,6 +51,10 @@ where
     /// Returns a reference to the element representing this node.
     pub fn element(&self) -> &Elt {
         &self.0.element
+    }
+
+    pub fn states(&self) -> &Cell<Elt::States> {
+        &self.0.states
     }
 
     pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {

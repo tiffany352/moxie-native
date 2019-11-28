@@ -1,4 +1,4 @@
-use crate::dom::element::{Element, HasEvent};
+use crate::dom::element::{Element, ElementStates, HasEvent};
 use crate::dom::input::{InputEvent, State};
 use crate::dom::{AttrClassName, AttrStyles, ClickEvent, Node, Span, View};
 use crate::style::Style;
@@ -34,20 +34,64 @@ element_handlers! {
     }
 }
 
+#[derive(Default, Clone, Copy, PartialEq)]
+pub struct ButtonStates {
+    hovered: bool,
+    pressed: bool,
+}
+
+impl ElementStates for ButtonStates {
+    fn has_state(&self, name: &str) -> bool {
+        match name {
+            "hover" => self.hovered,
+            "press" => self.pressed,
+            _ => false,
+        }
+    }
+}
+
 impl Element for Button {
     type Child = ButtonChild;
     type Handlers = ButtonHandlers;
+    type States = ButtonStates;
 
-    fn process(&self, handlers: &mut Self::Handlers, event: &InputEvent) -> bool {
+    fn process(
+        &self,
+        states: Self::States,
+        handlers: &mut Self::Handlers,
+        event: &InputEvent,
+    ) -> (bool, Self::States) {
         match event {
+            InputEvent::MouseMove { .. } => (
+                true,
+                ButtonStates {
+                    hovered: true,
+                    ..states
+                },
+            ),
             InputEvent::MouseLeft {
                 state: State::Begin,
                 ..
-            } => {
+            } => (
+                true,
+                ButtonStates {
+                    pressed: true,
+                    ..states
+                },
+            ),
+            InputEvent::MouseLeft {
+                state: State::End, ..
+            } if states.pressed => {
                 handlers.on_click.invoke(&ClickEvent);
-                true
+                (
+                    true,
+                    ButtonStates {
+                        pressed: false,
+                        ..states
+                    },
+                )
             }
-            _ => false,
+            _ => (false, states),
         }
     }
 

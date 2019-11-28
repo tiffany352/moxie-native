@@ -33,6 +33,7 @@ element_attributes! {
 impl Element for Window {
     type Child = Node<View>;
     type Handlers = ();
+    type States = ();
 
     fn class_name(&self) -> Option<&str> {
         self.class_name.as_ref().map(|cow| cow.as_ref())

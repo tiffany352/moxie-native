@@ -10,14 +10,20 @@ pub trait Element: Default + Clone + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + PartialEq;
     type Handlers: HandlerList;
+    type States: ElementStates + Clone + Copy + Default + PartialEq;
 
     /// Creates default style values
     fn create_computed_values(&self) -> ComputedValues {
         Default::default()
     }
 
-    fn process(&self, _handlers: &mut Self::Handlers, _event: &InputEvent) -> bool {
-        false
+    fn process(
+        &self,
+        states: Self::States,
+        _handlers: &mut Self::Handlers,
+        _event: &InputEvent,
+    ) -> (bool, Self::States) {
+        (false, states)
     }
 
     /// Returns the class_name attribute.
@@ -52,6 +58,16 @@ where
     fn set_attribute(&mut self, value: Attr::Value);
 }
 
+pub trait ElementStates {
+    fn has_state(&self, name: &str) -> bool;
+}
+
+impl ElementStates for () {
+    fn has_state(&self, _name: &str) -> bool {
+        false
+    }
+}
+
 /// Because some elements need to have multiple types of elements
 /// parented to them, their `Element::Child` type is actually an enum
 /// (defined using the `multiple_children!` macro).
@@ -71,6 +87,8 @@ pub trait NodeChild: 'static {
     fn type_id(&self) -> TypeId;
 
     fn process(&self, event: &InputEvent) -> bool;
+
+    fn has_state(&self, name: &str) -> bool;
 
     fn class_name(&self) -> Option<&str>;
 
@@ -126,7 +144,14 @@ where
 
     fn process(&self, event: &InputEvent) -> bool {
         let mut handlers = self.handlers().borrow_mut();
-        self.element().process(&mut *handlers, event)
+        let states = self.states().get();
+        let (sink, states) = self.element().process(states, &mut *handlers, event);
+        self.states().set(states);
+        sink
+    }
+
+    fn has_state(&self, name: &str) -> bool {
+        self.states().get().has_state(name)
     }
 
     fn class_name(&self) -> Option<&str> {
@@ -156,6 +181,10 @@ impl NodeChild for String {
     }
 
     fn process(&self, _event: &InputEvent) -> bool {
+        false
+    }
+
+    fn has_state(&self, _name: &str) -> bool {
         false
     }
 

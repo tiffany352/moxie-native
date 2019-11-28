@@ -21,6 +21,7 @@ element_attributes! {
 impl Element for Span {
     type Child = String;
     type Handlers = ();
+    type States = ();
 
     fn create_computed_values(&self) -> ComputedValues {
         ComputedValues {

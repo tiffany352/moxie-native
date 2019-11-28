@@ -50,6 +50,14 @@ macro_rules! multiple_children {
                 }
             }
 
+            fn has_state(&self, name: &str) -> bool {
+                match self {
+                    $(
+                        $name::$var_name(elt) => elt.has_state(name)
+                    ),+
+                }
+            }
+
             fn class_name(&self) -> Option<&str> {
                 match self {
                     $(

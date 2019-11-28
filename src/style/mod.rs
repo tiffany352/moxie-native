@@ -9,6 +9,7 @@ use std::borrow::Cow;
 pub enum Selector {
     ElementType(TypeId),
     ClassName(&'static str),
+    State(&'static str),
     HasParent(&'static Selector),
     HasAncestor(&'static Selector),
     IsFirstChild,
@@ -25,6 +26,7 @@ impl Selector {
                 .class_name()
                 .map(|value| value == *class)
                 .unwrap_or(false),
+            Selector::State(state) => node.has_state(state),
             _ => unimplemented!(),
         }
     }
@@ -277,6 +279,9 @@ macro_rules! style_selector {
     };
     (element == $element:ty) => {
         $crate::style::Selector::ElementType(::std::any::TypeId::of::<$element>())
+    };
+    (state($state:ident)) => {
+        $crate::style::Selector::State(stringify!($state))
     };
 }
 
