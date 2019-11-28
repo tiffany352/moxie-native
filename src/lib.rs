@@ -29,6 +29,9 @@
 //! runtime.start();
 //! ```
 
+#[proc_macro_hack::proc_macro_hack]
+pub use moxie_native_style::define_style;
+
 pub mod dom;
 mod layout;
 #[doc(hidden)]

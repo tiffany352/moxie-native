@@ -1,0 +1,17 @@
+[package]
+name = "moxie-native-style"
+version = "0.1.0"
+edition = "2018"
+authors = ["Tiffany Bennett <tiffnixen@gmail.com>"]
+license = "MIT/Apache-2.0"
+description = "Declare styles for moxie-native"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+proc-macro-error = "0.3.1"
+proc-macro-hack = "0.5"
+quote = "1"
+syn = "1"

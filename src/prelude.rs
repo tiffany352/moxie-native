@@ -5,7 +5,7 @@ pub use crate::moxie::*;
 // For easily defining styles
 pub use crate::style::{Direction, Display, Style, Value};
 pub use crate::Color;
-pub use crate::{style, style_selector};
+pub use define_style;
 // Required for mox to work
 pub use crate::{button, span, text, view, window};
 // Re-export important moxie pieces

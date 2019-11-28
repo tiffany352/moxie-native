@@ -3,35 +3,35 @@
 use moxie_native::prelude::*;
 
 const STYLES: &'static [&'static Style] = &[
-    style! {
-        (class_name == "container") => {
-            padding: Value { pixels: 10.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: container {
+            padding: 10 px,
         }
     },
-    style! {
-        (class_name == "h1") => {
-            text_size: Value { pixels: 20.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: h1 {
+            text_size: 20 px,
         }
     },
-    style! {
-        (class_name == "button") => {
-            background_color: Color { red: 238, green: 238, blue: 238, alpha: 255 },
+    define_style! {
+        class: button {
+            background_color: rgb(238, 238, 238),
         }
     },
-    style! {
-        (class_name == "view1") => {
-            background_color: Color { red: 255, green: 0, blue: 0, alpha: 255},
-            display: Display::Block,
-            width: Value { pixels: 200.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
-            height: Value { pixels: 200.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: view1 {
+            background_color: rgb(255, 0, 0),
+            display: block,
+            width: 200 px,
+            height: 200 px,
         }
     },
-    style! {
-        (class_name == "view2") => {
-            background_color: Color { red: 0, green: 255, blue: 0, alpha: 255},
-            display: Display::Block,
-            width: Value { pixels: 250.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
-            height: Value { pixels: 150.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: view2 {
+            background_color: rgb(0, 255, 0),
+            display: block,
+            width: 250 px,
+            height: 150 px,
         }
     },
 ];

@@ -150,10 +150,16 @@ impl Default for ComputedValues {
 
 /// Affects the presentation of elements that are chosen based on the
 /// selector. See `style!` for how you define this.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Style {
-    pub selector: Selector,
+    pub selector: fn(&dyn NodeChild) -> bool,
     pub attributes: CommonAttributes,
+}
+
+impl PartialEq for Style {
+    fn eq(&self, other: &Self) -> bool {
+        self.attributes == other.attributes
+    }
 }
 
 impl Style {
@@ -231,7 +237,7 @@ impl StyleEngine {
             Self::apply_style(node, parent, values);
         }
         for style in chain.styles {
-            if style.selector.select(node) {
+            if (style.selector)(node) {
                 style.apply(values);
             }
         }
@@ -271,20 +277,6 @@ impl StyleEngine {
     }
 }
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! style_selector {
-    (class_name == $value:expr) => {
-        $crate::style::Selector::ClassName($value)
-    };
-    (element == $element:ty) => {
-        $crate::style::Selector::ElementType(::std::any::TypeId::of::<$element>())
-    };
-    (state($state:ident)) => {
-        $crate::style::Selector::State(stringify!($state))
-    };
-}
-
 pub const DEFAULT_ATTRIBUTES: CommonAttributes = CommonAttributes {
     display: None,
     direction: None,
@@ -299,19 +291,3 @@ pub const DEFAULT_ATTRIBUTES: CommonAttributes = CommonAttributes {
     width: None,
     height: None,
 };
-
-/// Macro for defining a style to be applied to an element.
-#[macro_export]
-macro_rules! style {
-    ( ( $($selector:tt)+ ) => { $( $name:ident : $value:expr ),* $(,)* } ) => {
-        & $crate::style::Style {
-            selector: style_selector!($($selector)+),
-            attributes: $crate::style::CommonAttributes {
-                $(
-                    $name : Some($value)
-                ),*
-                , .. $crate::style::DEFAULT_ATTRIBUTES
-            }
-        }
-    };
-}

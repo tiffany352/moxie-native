@@ -12,6 +12,7 @@ scopeguard = "1"
 euclid = "0.20.3"
 slotmap = "0.4"
 font-kit = "0.2.0"
+proc-macro-hack = "0.5"
 
 [dependencies.webrender]
 git = "https://github.com/servo/webrender.git"
@@ -32,6 +33,9 @@ rev = "1d7b163543c6d6b6cc4696ee2dcad33a78971da9"
 [dependencies.skribo]
 git = "https://github.com/tiffany352/skribo.git"
 rev = "61f498a1f0f3d69b10029a402d2cb37606e576bc"
+
+[dependencies.moxie-native-style]
+path = "./style"
 
 [patch.'https://github.com/anp/moxie.git']
 mox = { path = "./mox" }

@@ -3,23 +3,23 @@
 use moxie_native::prelude::*;
 
 const STYLES: &'static [&'static Style] = &[
-    style! {
-        (class_name == "row") => {
-            width: Value { pixels: 0.0, ems: 0.0, view_width: 1.0, view_height: 0.0, },
-            height: Value { pixels: 0.0, ems: 0.0, view_width: 0.0, view_height: 0.2, },
-            direction: Direction::Horizontal,
-            background_color: Color { red: 0, green: 0, blue: 0, alpha: 0 },
-            text_size: Value { pixels: 25.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
-            padding: Value { pixels: 4.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: row {
+            width: 100 vw,
+            height: 20 vh,
+            direction: horizontal,
+            background_color: rgba(0, 0, 0, 0),
+            text_size: 25 px,
+            padding: 4 px,
         }
     },
-    style! {
-        (class_name == "button") => {
-            width: Value { pixels: -8.0, ems: 0.0, view_width: 0.25, view_height: 0.0, },
-            height: Value { pixels: -8.0, ems: 0.0, view_width: 0.0, view_height: 0.2, },
-            background_color: Color { red: 200, green: 200, blue: 200, alpha: 255 },
-            padding: Value { pixels: 10.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
-            margin: Value { pixels: 4.0, ems: 0.0, view_width: 0.0, view_height: 0.0, },
+    define_style! {
+        class: button {
+            width: 25 vw - 8 px,
+            height: 20 vh - 8 px,
+            background_color: rgb(200, 200, 200),
+            padding: 10 px,
+            margin: 4 px,
         }
     },
 ];
