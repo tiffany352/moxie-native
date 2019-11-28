@@ -24,6 +24,14 @@ const BUTTON_STYLE: Style = define_style! {
 };
 
 #[derive(Clone, PartialEq, Copy)]
+enum Message {
+    Op(Op),
+    Equ,
+    Cls,
+    Digit(i64),
+}
+
+#[derive(Clone, PartialEq, Copy)]
 enum Op {
     Add,
     Sub,
@@ -58,43 +66,44 @@ impl CalcState {
         }
     }
 
-    fn digit(&self, digit: i64) -> CalcState {
-        CalcState {
-            value: self.value * 10 + digit,
-            ..*self
-        }
-    }
-
-    fn op(&self, op: Op) -> CalcState {
-        if let Some(prev_op) = self.op {
-            CalcState {
-                op: Some(op),
-                previous: prev_op.apply(self.previous, self.value),
-                value: 0,
+    fn process(&self, message: Message) -> CalcState {
+        match message {
+            Message::Op(op) => {
+                if let Some(prev_op) = self.op {
+                    CalcState {
+                        op: Some(op),
+                        previous: prev_op.apply(self.previous, self.value),
+                        value: 0,
+                    }
+                } else if self.value > 0 {
+                    CalcState {
+                        op: Some(op),
+                        previous: self.value,
+                        value: 0,
+                    }
+                } else {
+                    CalcState {
+                        op: Some(op),
+                        ..*self
+                    }
+                }
             }
-        } else if self.value > 0 {
-            CalcState {
-                op: Some(op),
-                previous: self.value,
-                value: 0,
+            Message::Equ => {
+                if let Some(op) = self.op {
+                    CalcState {
+                        op: None,
+                        previous: op.apply(self.previous, self.value),
+                        value: 0,
+                    }
+                } else {
+                    CalcState { ..*self }
+                }
             }
-        } else {
-            CalcState {
-                op: Some(op),
+            Message::Cls => CalcState::new(),
+            Message::Digit(digit) => CalcState {
+                value: self.value * 10 + digit,
                 ..*self
-            }
-        }
-    }
-
-    fn equals(&self) -> CalcState {
-        if let Some(op) = self.op {
-            CalcState {
-                op: None,
-                previous: op.apply(self.previous, self.value),
-                value: 0,
-            }
-        } else {
-            CalcState { ..*self }
+            },
         }
     }
 
@@ -116,34 +125,29 @@ impl CalcState {
 }
 
 #[topo::nested]
+fn calc_function(state: Key<CalcState>, message: Message) -> Node<Button> {
+    let on_click = move |_event: &ClickEvent| state.update(|state| Some(state.process(message)));
+
+    let text = match message {
+        Message::Cls => "C".to_owned(),
+        Message::Equ => "=".to_owned(),
+        Message::Digit(digit) => digit.to_string(),
+        Message::Op(Op::Add) => "+".to_owned(),
+        Message::Op(Op::Sub) => "-".to_owned(),
+        Message::Op(Op::Mul) => "*".to_owned(),
+        Message::Op(Op::Div) => "/".to_owned(),
+    };
+
+    mox!(
+        <button style={BUTTON_STYLE} on={on_click}>
+            <span>{text}</span>
+        </button>
+    )
+}
+
+#[topo::nested]
 fn app() -> Vec<Node<Window>> {
     let state: Key<CalcState> = state!(|| CalcState::new());
-
-    let state_copy = state.clone();
-    let make_digit_handler = move |digit: i64| {
-        let state_copy = state_copy.clone();
-        move |_: &ClickEvent| {
-            state_copy.update(|state| Some(state.digit(digit)));
-        }
-    };
-
-    let state_copy = state.clone();
-    let make_op_handler = move |op: Op| {
-        let state_copy = state_copy.clone();
-        move |_: &ClickEvent| {
-            state_copy.update(|state| Some(state.op(op)));
-        }
-    };
-
-    let state_copy = state.clone();
-    let on_clear = move |_: &ClickEvent| {
-        state_copy.update(|_state| Some(CalcState::new()));
-    };
-
-    let state_copy = state.clone();
-    let on_equals = move |_: &ClickEvent| {
-        state_copy.update(|state| Some(state.equals()));
-    };
 
     vec![mox! {
         <window title="Moxie-Native Calculator">
@@ -151,60 +155,28 @@ fn app() -> Vec<Node<Window>> {
                 <span>{% "{}", state.display()}</span>
             </view>
             <view style={ROW_STYLE}>
-                <button style={BUTTON_STYLE} on={make_digit_handler(7)}>
-                    <span>"7"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(8)}>
-                    <span>"8"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(9)}>
-                    <span>"9"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_op_handler(Op::Mul)}>
-                    <span>"*"</span>
-                </button>
+                <calc_function _=(state.clone(), Message::Digit(7)) />
+                <calc_function _=(state.clone(), Message::Digit(8)) />
+                <calc_function _=(state.clone(), Message::Digit(9)) />
+                <calc_function _=(state.clone(), Message::Op(Op::Mul)) />
             </view>
             <view style={ROW_STYLE}>
-                <button style={BUTTON_STYLE} on={make_digit_handler(4)}>
-                    <span>"4"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(5)}>
-                    <span>"5"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(6)}>
-                    <span>"6"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_op_handler(Op::Div)}>
-                    <span>"/"</span>
-                </button>
+                <calc_function _=(state.clone(), Message::Digit(4)) />
+                <calc_function _=(state.clone(), Message::Digit(5)) />
+                <calc_function _=(state.clone(), Message::Digit(6)) />
+                <calc_function _=(state.clone(), Message::Op(Op::Div)) />
             </view>
             <view style={ROW_STYLE}>
-                <button style={BUTTON_STYLE} on={make_digit_handler(1)}>
-                    <span>"1"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(2)}>
-                    <span>"2"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_digit_handler(3)}>
-                    <span>"3"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_op_handler(Op::Add)}>
-                    <span>"+"</span>
-                </button>
+                <calc_function _=(state.clone(), Message::Digit(1)) />
+                <calc_function _=(state.clone(), Message::Digit(2)) />
+                <calc_function _=(state.clone(), Message::Digit(3)) />
+                <calc_function _=(state.clone(), Message::Op(Op::Add)) />
             </view>
             <view style={ROW_STYLE}>
-                <button style={BUTTON_STYLE} on={make_digit_handler(0)}>
-                    <span>"0"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={on_equals}>
-                    <span>"="</span>
-                </button>
-                <button style={BUTTON_STYLE} on={on_clear}>
-                    <span>"C"</span>
-                </button>
-                <button style={BUTTON_STYLE} on={make_op_handler(Op::Sub)}>
-                    <span>"-"</span>
-                </button>
+                <calc_function _=(state.clone(), Message::Digit(0)) />
+                <calc_function _=(state.clone(), Message::Equ) />
+                <calc_function _=(state.clone(), Message::Cls) />
+                <calc_function _=(state.clone(), Message::Op(Op::Sub)) />
             </view>
         </window>
     }]
