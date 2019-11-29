@@ -1,5 +1,5 @@
 use crate::dom::input::InputEvent;
-use crate::dom::{element::NodeChild, Node, Window};
+use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::style::StyleEngine;
 use crate::Color;
@@ -162,14 +162,18 @@ impl Context {
         builder: &mut DisplayListBuilder,
         transaction: &mut Transaction,
         position: Point2D<f32, LogicalPixel>,
-        node: &dyn NodeChild,
+        node: DynamicNode,
         layout: &Rc<LayoutTreeNode>,
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
         let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
-        let values = node.computed_values().ok().and_then(|x| x.get());
+        let values = if let DynamicNode::Node(node) = node {
+            node.computed_values().get()
+        } else {
+            None
+        };
 
         if let Some(values) = values {
             if values.background_color.alpha > 0 {
@@ -243,16 +247,18 @@ impl Context {
             builder.pop_stacking_context();
         }
 
-        for layout in &layout.children {
-            let child = node.get_child(layout.index).expect("child to exist");
-            self.render_child(
-                pipeline_id,
-                builder,
-                transaction,
-                position + layout.position.to_vector(),
-                child,
-                &layout.layout,
-            );
+        if let DynamicNode::Node(node) = node {
+            for layout in &layout.children {
+                let child = node.get_child(layout.index).expect("child to exist");
+                self.render_child(
+                    pipeline_id,
+                    builder,
+                    transaction,
+                    position + layout.position.to_vector(),
+                    child,
+                    &layout.layout,
+                );
+            }
         }
     }
 
@@ -280,7 +286,7 @@ impl Context {
                 &mut builder,
                 &mut transaction,
                 layout.position,
-                &child,
+                DynamicNode::Node(&*child),
                 &layout.layout,
             );
         }
@@ -304,20 +310,22 @@ impl Context {
         &self,
         event: &InputEvent,
         position: Point2D<f32, LogicalPixel>,
-        node: &dyn NodeChild,
+        node: &dyn AnyNodeData,
         layout: &Rc<LayoutTreeNode>,
     ) -> bool {
         let rect = Rect::new(position, layout.size);
 
         for layout in &layout.children {
             let child = node.get_child(layout.index).expect("child to exist");
-            if self.process_child(
-                event,
-                position + layout.position.to_vector(),
-                child,
-                &layout.layout,
-            ) {
-                return true;
+            if let DynamicNode::Node(node) = child {
+                if self.process_child(
+                    event,
+                    position + layout.position.to_vector(),
+                    node,
+                    &layout.layout,
+                ) {
+                    return true;
+                }
             }
         }
 
@@ -349,7 +357,7 @@ impl Context {
 
         for layout in &root_layout.children {
             let child = &self.window.children()[layout.index];
-            if self.process_child(event, layout.position, child, &layout.layout) {
+            if self.process_child(event, layout.position, &**child, &layout.layout) {
                 return true;
             }
         }

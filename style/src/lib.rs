@@ -417,7 +417,7 @@ impl ToTokens for SubStyle {
         let attributes = self.attributes.iter().collect::<Vec<_>>();
         tokens.extend(quote!(
             ::moxie_native::style::SubStyle {
-                selector: |node: &dyn ::moxie_native::dom::element::NodeChild| -> bool {
+                selector: |node: &dyn ::moxie_native::dom::node::AnyNodeData| -> bool {
                     #(#selectors)&&*
                 },
                 attributes: ::moxie_native::style::CommonAttributes {

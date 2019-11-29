@@ -18,58 +18,10 @@ macro_rules! multiple_children {
         )+
 
         impl $crate::dom::element::NodeChild for $name {
-            fn get_child(&self, child: usize) -> Option<&dyn $crate::dom::element::NodeChild> {
+            fn get_node(&self) -> $crate::dom::element::DynamicNode {
                 match self {
                     $(
-                        $name::$var_name(elt) => elt.get_child(child)
-                    ),+
-                }
-            }
-
-            fn computed_values(&self) -> Result<&::std::cell::Cell<Option<$crate::style::ComputedValues>>, &str> {
-                match self {
-                    $(
-                        $name::$var_name(elt) => Ok(elt.computed_values())
-                    ),+
-                }
-            }
-
-            fn type_id(&self) -> ::std::any::TypeId {
-                match self {
-                    $(
-                        $name::$var_name(_) => ::std::any::TypeId::of::<$var_ty>()
-                    ),+
-                }
-            }
-
-            fn process(&self, event: &$crate::dom::input::InputEvent) -> bool {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.process(event)
-                    ),+
-                }
-            }
-
-            fn has_state(&self, name: &str) -> bool {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.has_state(name)
-                    ),+
-                }
-            }
-
-            fn style(&self) -> Option<$crate::style::Style> {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.style()
-                    ),+
-                }
-            }
-
-            fn create_computed_values(&self) -> $crate::style::ComputedValues {
-                match self {
-                    $(
-                        $name::$var_name(elt) => elt.create_computed_values()
+                        $name::$var_name(elt) => $crate::dom::element::DynamicNode::Node(&**elt)
                     ),+
                 }
             }

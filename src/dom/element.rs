@@ -1,9 +1,7 @@
-use super::Node;
 use crate::dom::input::InputEvent;
+use crate::dom::node::{AnyNodeData, Node};
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
-use std::any::TypeId;
-use std::cell::Cell;
 
 /// Represents the attributes and behavior of a single DOM element.
 pub trait Element: Default + Clone + PartialEq + 'static {
@@ -65,6 +63,11 @@ impl ElementStates for () {
     }
 }
 
+pub enum DynamicNode<'a> {
+    Str(&'a str),
+    Node(&'a dyn AnyNodeData),
+}
+
 /// Because some elements need to have multiple types of elements
 /// parented to them, their `Element::Child` type is actually an enum
 /// (defined using the `multiple_children!` macro).
@@ -74,117 +77,21 @@ impl ElementStates for () {
 /// a sort of visitor pattern which lets the DOM be walked without
 /// having to know the types of each element at each step.
 pub trait NodeChild: 'static {
-    /// Returns a trait object for the child at the given index. If the
-    /// index is out of bounds, return None. Typically maps to
-    /// `Element::children().get(index)`.
-    fn get_child(&self, child: usize) -> Option<&dyn NodeChild>;
-
-    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str>;
-
-    fn type_id(&self) -> TypeId;
-
-    fn process(&self, event: &InputEvent) -> bool;
-
-    fn has_state(&self, name: &str) -> bool;
-
-    fn style(&self) -> Option<Style>;
-
-    fn create_computed_values(&self) -> ComputedValues;
-}
-
-/// A helper to walk through the children of a `NodeChild`, creating an
-/// iterator over the children so that you don't have to call
-/// `get_child` manually.
-pub fn children(node: &dyn NodeChild) -> impl Iterator<Item = &dyn NodeChild> {
-    struct Iter<'a> {
-        node: &'a dyn NodeChild,
-        index: usize,
-    }
-
-    impl<'a> Iterator for Iter<'a> {
-        type Item = &'a dyn NodeChild;
-
-        fn next(&mut self) -> Option<Self::Item> {
-            let child = self.node.get_child(self.index);
-            self.index += 1;
-            child
-        }
-    }
-
-    Iter {
-        node: node,
-        index: 0,
-    }
+    fn get_node(&self) -> DynamicNode;
 }
 
 impl<Elt> NodeChild for Node<Elt>
 where
     Elt: Element,
 {
-    fn get_child(&self, child: usize) -> Option<&dyn NodeChild> {
-        if let Some(child) = self.children().get(child) {
-            Some(child)
-        } else {
-            None
-        }
-    }
-
-    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str> {
-        Ok(self.computed_values())
-    }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Elt>()
-    }
-
-    fn process(&self, event: &InputEvent) -> bool {
-        let mut handlers = self.handlers().borrow_mut();
-        let states = self.states().get();
-        let (sink, states) = self.element().process(states, &mut *handlers, event);
-        self.states().set(states);
-        sink
-    }
-
-    fn has_state(&self, name: &str) -> bool {
-        self.states().get().has_state(name)
-    }
-
-    fn style(&self) -> Option<Style> {
-        self.element().style()
-    }
-
-    fn create_computed_values(&self) -> ComputedValues {
-        self.element().create_computed_values()
+    fn get_node(&self) -> DynamicNode {
+        DynamicNode::Node(&**self)
     }
 }
 
 impl NodeChild for String {
-    fn get_child(&self, _child: usize) -> Option<&dyn NodeChild> {
-        None
-    }
-
-    fn computed_values(&self) -> Result<&Cell<Option<ComputedValues>>, &str> {
-        Err(&self[..])
-    }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<String>()
-    }
-
-    fn process(&self, _event: &InputEvent) -> bool {
-        false
-    }
-
-    fn has_state(&self, _name: &str) -> bool {
-        false
-    }
-
-    fn style(&self) -> Option<Style> {
-        None
-    }
-
-    fn create_computed_values(&self) -> ComputedValues {
-        ComputedValues::default()
+    fn get_node(&self) -> DynamicNode {
+        DynamicNode::Str(&self[..])
     }
 }
 

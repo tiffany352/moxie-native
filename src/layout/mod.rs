@@ -1,7 +1,7 @@
 //! This module handles creating the layout tree, which includes
 //! arranging elements and performing text layout.
 
-use crate::dom::{element::children as get_children, element::NodeChild, Node, Window};
+use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::word_break_iter;
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
@@ -144,25 +144,26 @@ impl LayoutEngine {
     }
 
     fn collect_inline_items(
-        node: &dyn NodeChild,
+        node: &dyn AnyNodeData,
         parent_values: &ComputedValues,
         max_size: LogicalSize,
         items: &mut Vec<InlineLayoutItem>,
     ) {
-        for (index, child) in get_children(node).enumerate() {
-            let values = child.computed_values().map(|value| value.get().unwrap());
-            match values {
-                Ok(ref values) => match values.display {
-                    DisplayType::Block(ref block) => {
-                        let layout = Self::layout_block(child, values, block, max_size);
-                        items.push(InlineLayoutItem::Block { index, layout });
+        for (index, child) in node.children().enumerate() {
+            match child {
+                DynamicNode::Node(node) => {
+                    let values = node.computed_values().get().unwrap();
+                    match values.display {
+                        DisplayType::Block(ref block) => {
+                            let layout = Self::layout_block(node, &values, block, max_size);
+                            items.push(InlineLayoutItem::Block { index, layout });
+                        }
+                        DisplayType::Inline(_) => {
+                            Self::collect_inline_items(node, &values, max_size, items);
+                        }
                     }
-                    DisplayType::Inline(_) => {
-                        Self::collect_inline_items(child, values, max_size, items);
-                    }
-                },
-                // Text node
-                Err(text) => items.push(InlineLayoutItem::Text {
+                }
+                DynamicNode::Str(text) => items.push(InlineLayoutItem::Text {
                     text: TextLayoutInfo {
                         text: text.to_owned(),
                         size: parent_values.text_size.get(),
@@ -175,7 +176,7 @@ impl LayoutEngine {
     }
 
     fn layout_inline(
-        node: &dyn NodeChild,
+        node: &dyn AnyNodeData,
         values: &ComputedValues,
         max_size: LogicalSize,
     ) -> Rc<LayoutTreeNode> {
@@ -326,7 +327,7 @@ impl LayoutEngine {
     }
 
     fn layout_block(
-        node: &dyn NodeChild,
+        node: &dyn AnyNodeData,
         values: &ComputedValues,
         block_values: &BlockValues,
         parent_max_size: LogicalSize,
@@ -336,18 +337,20 @@ impl LayoutEngine {
                 let max_size = Self::calc_max_size(block_values, parent_max_size);
 
                 let mut children = vec![];
-                for child in get_children(node) {
-                    let child_values = child.computed_values().map(|value| value.get().expect("styling to have filled this in"));
-                    match child_values {
-                        Ok(ref values) => match values.display {
-                            DisplayType::Block(ref block) => {
-                                children.push(Self::layout_block(child, values, block, max_size));
-                            }
-                            DisplayType::Inline(_) => {
-                                children.push(Self::layout_inline(child, values, max_size));
+                for child in node.children() {
+                    match child {
+                        DynamicNode::Node(node) => {
+                            let values = node.computed_values().get().unwrap();
+                            match values.display {
+                                DisplayType::Block(ref block) => {
+                                    children.push(Self::layout_block(node, &values, block, max_size));
+                                }
+                                DisplayType::Inline(_) => {
+                                    children.push(Self::layout_inline(node, &values, max_size));
+                                }
                             }
                         }
-                        Err(text) => {
+                        DynamicNode::Str(text) => {
                             let text = TextLayoutInfo {
                                 text: text.to_owned(),
                                 size: values.text_size.get(),
@@ -398,9 +401,9 @@ impl LayoutEngine {
                 let values = node.computed_values().get().unwrap();
                 match values.display {
                     DisplayType::Block(ref block) => {
-                        Self::layout_block(node, &values, block, *size)
+                        Self::layout_block(&**node, &values, block, *size)
                     }
-                    DisplayType::Inline(_) => Self::layout_inline(node, &values, *size),
+                    DisplayType::Inline(_) => Self::layout_inline(&**node, &values, *size),
                 }
             },
             env! {

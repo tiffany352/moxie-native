@@ -1,10 +1,13 @@
-use crate::dom::element::Element;
-use crate::style::ComputedValues;
+use crate::dom::element::{DynamicNode, Element, ElementStates, NodeChild};
+use crate::dom::input::InputEvent;
+use crate::style::{ComputedValues, Style};
+use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 use std::rc::Rc;
 
-struct NodeData<Elt>
+pub struct NodeData<Elt>
 where
     Elt: Element,
 {
@@ -28,6 +31,99 @@ where
             children: children,
         }
     }
+
+    /// Returns a reference to the children vector.
+    pub fn children(&self) -> &[Elt::Child] {
+        &self.children[..]
+    }
+
+    /// Returns a reference to the element representing this node.
+    pub fn element(&self) -> &Elt {
+        &self.element
+    }
+
+    pub fn states(&self) -> &Cell<Elt::States> {
+        &self.states
+    }
+
+    pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
+        &self.computed_values
+    }
+
+    pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
+        &self.handlers
+    }
+}
+
+pub struct NodeDataChildrenIter<'a> {
+    node: &'a dyn AnyNodeData,
+    index: usize,
+}
+
+impl<'a> Iterator for NodeDataChildrenIter<'a> {
+    type Item = DynamicNode<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.node.get_child(self.index);
+        self.index += 1;
+        result
+    }
+}
+
+pub trait AnyNodeData {
+    fn computed_values(&self) -> &Cell<Option<ComputedValues>>;
+    fn get_child(&self, index: usize) -> Option<DynamicNode>;
+    fn children(&self) -> NodeDataChildrenIter;
+    fn process(&self, event: &InputEvent) -> bool;
+    fn create_computed_values(&self) -> ComputedValues;
+    fn style(&self) -> Option<Style>;
+    fn has_state(&self, key: &str) -> bool;
+    fn type_id(&self) -> TypeId;
+}
+
+impl<Elt> AnyNodeData for NodeData<Elt>
+where
+    Elt: Element,
+{
+    fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
+        &self.computed_values
+    }
+
+    fn get_child(&self, index: usize) -> Option<DynamicNode> {
+        self.children.get(index).map(|child| child.get_node())
+    }
+
+    fn children(&self) -> NodeDataChildrenIter {
+        NodeDataChildrenIter {
+            node: self,
+            index: 0,
+        }
+    }
+
+    fn process(&self, event: &InputEvent) -> bool {
+        let mut handlers = self.handlers.borrow_mut();
+        let (sink, new_states) = self
+            .element
+            .process(self.states.get(), &mut *handlers, event);
+        self.states.set(new_states);
+        sink
+    }
+
+    fn create_computed_values(&self) -> ComputedValues {
+        self.element.create_computed_values()
+    }
+
+    fn style(&self) -> Option<Style> {
+        self.element.style()
+    }
+
+    fn has_state(&self, key: &str) -> bool {
+        self.states.get().has_state(key)
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Elt>()
+    }
 }
 
 /// Typed handle to a DOM node.
@@ -42,27 +138,16 @@ where
     pub fn new(element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
         Node(Rc::new(NodeData::new(element, children)))
     }
+}
 
-    /// Returns a reference to the children vector.
-    pub fn children(&self) -> &[Elt::Child] {
-        &self.0.children[..]
-    }
+impl<Elt> Deref for Node<Elt>
+where
+    Elt: Element,
+{
+    type Target = NodeData<Elt>;
 
-    /// Returns a reference to the element representing this node.
-    pub fn element(&self) -> &Elt {
-        &self.0.element
-    }
-
-    pub fn states(&self) -> &Cell<Elt::States> {
-        &self.0.states
-    }
-
-    pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.0.computed_values
-    }
-
-    pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
-        &self.0.handlers
+    fn deref(&self) -> &Self::Target {
+        &*self.0
     }
 }
 
