@@ -206,8 +206,13 @@ impl StyleEngine {
         }
     }
 
-    fn update_style(node: &dyn AnyNodeData) {
+    fn update_style(node: &dyn AnyNodeData, parent: Option<&ComputedValues>) {
         let mut computed = node.create_computed_values();
+
+        if let Some(parent) = parent {
+            computed.text_size = parent.text_size;
+            computed.text_color = parent.text_color;
+        }
 
         let style = node.style();
         if let Some(Style(style)) = style {
@@ -223,14 +228,14 @@ impl StyleEngine {
 
         for child in node.children() {
             if let DynamicNode::Node(node) = child {
-                Self::update_style(node);
+                Self::update_style(node, Some(&computed));
             }
         }
     }
 
     #[topo::from_env(node: &Node<Window>)]
     fn run_styling() {
-        Self::update_style(&**node);
+        Self::update_style(&**node, None);
     }
 
     /// Update the node tree with computed values.
