@@ -11,6 +11,81 @@ pub struct Builder<Elt: Element> {
     children: Vec<Elt::Child>,
 }
 
+pub trait IntoChildren<Elt>
+where
+    Elt: Element,
+{
+    type Item: Into<Elt::Child>;
+    type IntoIter: Iterator<Item = Self::Item>;
+
+    fn into_children(self) -> Self::IntoIter;
+}
+
+impl<Parent, Child> IntoChildren<Parent> for Node<Child>
+where
+    Parent: Element,
+    Child: Element,
+    Parent::Child: From<Node<Child>>,
+{
+    type Item = Node<Child>;
+    type IntoIter = std::iter::Once<Node<Child>>;
+
+    fn into_children(self) -> Self::IntoIter {
+        std::iter::once(self)
+    }
+}
+
+pub struct ChildrenIterator<Iter>(Iter);
+
+impl<Iter> From<Iter> for ChildrenIterator<Iter>
+where
+    Iter: Iterator,
+{
+    fn from(value: Iter) -> Self {
+        Self(value)
+    }
+}
+
+impl<Parent, Iter, Item> IntoChildren<Parent> for ChildrenIterator<Iter>
+where
+    Parent: Element,
+    Parent::Child: From<Item>,
+    Iter: Iterator<Item = Item>,
+{
+    type Item = Iter::Item;
+    type IntoIter = Iter;
+
+    fn into_children(self) -> Self::IntoIter {
+        self.0
+    }
+}
+
+impl<Parent, Item> IntoChildren<Parent> for Vec<Item>
+where
+    Parent: Element,
+    Parent::Child: From<Item>,
+{
+    type Item = Item;
+    type IntoIter = std::vec::IntoIter<Item>;
+
+    fn into_children(self) -> Self::IntoIter {
+        self.into_iter()
+    }
+}
+
+impl<Parent> IntoChildren<Parent> for String
+where
+    Parent: Element,
+    Parent::Child: From<String>,
+{
+    type Item = String;
+    type IntoIter = std::iter::Once<String>;
+
+    fn into_children(self) -> Self::IntoIter {
+        std::iter::once(self)
+    }
+}
+
 impl<Elt> Builder<Elt>
 where
     Elt: Element,
@@ -55,14 +130,18 @@ where
     }
 
     /// Adds a child node.
-    pub fn add_child(mut self, child: impl Into<Elt::Child>) -> Self {
-        self.children.push(child.into());
+    pub fn add_child(mut self, children: impl IntoChildren<Elt>) -> Self {
+        for child in children.into_children() {
+            self.children.push(child.into());
+        }
         self
     }
 
     /// Adds free-floating content, typically text, to the node.
-    pub fn add_content(mut self, child: impl Into<Elt::Child>) -> Self {
-        self.children.push(child.into());
+    pub fn add_content(mut self, children: impl IntoChildren<Elt>) -> Self {
+        for child in children.into_children() {
+            self.children.push(child.into());
+        }
         self
     }
 
