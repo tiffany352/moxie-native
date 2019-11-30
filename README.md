@@ -26,7 +26,7 @@ defining UI similar to React.
 
 ## Example
 
-```rs
+```rust
 // Get all the types and macros needed for concise code
 use moxie_native::prelude::*;
 
