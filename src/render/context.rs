@@ -1,9 +1,8 @@
 use crate::dom::input::InputEvent;
 use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
-use crate::style::StyleEngine;
+use crate::style::{ComputedValues, StyleEngine};
 use crate::util::equal_rc::EqualRc;
-use crate::Color;
 use gleam::gl;
 use skribo::FontRef;
 use std::collections::HashMap;
@@ -162,6 +161,7 @@ impl Context {
         position: Point2D<f32, LogicalPixel>,
         node: DynamicNode,
         layout: &EqualRc<LayoutTreeNode>,
+        parent_values: ComputedValues,
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
@@ -206,7 +206,8 @@ impl Context {
             size,
         }) = layout.render_text
         {
-            let color = Color::new(0, 0, 0, 255);
+            let values = values.as_ref().unwrap_or(&parent_values);
+            let color = values.text_color;
             builder.push_simple_stacking_context(
                 point2(0.0, 0.0),
                 space_and_clip.spatial_id,
@@ -248,6 +249,7 @@ impl Context {
                     position + layout.position.to_vector(),
                     child,
                     &layout.layout,
+                    node.computed_values().get().unwrap(),
                 );
             }
         }
@@ -279,6 +281,7 @@ impl Context {
                 layout.position,
                 DynamicNode::Node(&*child),
                 &layout.layout,
+                self.window.computed_values().get().unwrap(),
             );
         }
 
