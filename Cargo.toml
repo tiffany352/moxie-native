@@ -32,7 +32,7 @@ rev = "1d7b163543c6d6b6cc4696ee2dcad33a78971da9"
 
 [dependencies.skribo]
 git = "https://github.com/tiffany352/skribo.git"
-rev = "3f4421e46edecc94cf828d40f18efcf8422f414a"
+rev = "9072203e1a1eef7bded0c02c82f41f09a0b58641"
 
 [dependencies.moxie-native-style]
 path = "./style"
