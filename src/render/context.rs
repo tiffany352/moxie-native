@@ -2,6 +2,7 @@ use crate::dom::input::InputEvent;
 use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::style::StyleEngine;
+use crate::util::equal_rc::EqualRc;
 use crate::Color;
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -163,7 +164,7 @@ impl Context {
         transaction: &mut Transaction,
         position: Point2D<f32, LogicalPixel>,
         node: DynamicNode,
-        layout: &Rc<LayoutTreeNode>,
+        layout: &EqualRc<LayoutTreeNode>,
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
@@ -311,7 +312,7 @@ impl Context {
         event: &InputEvent,
         position: Point2D<f32, LogicalPixel>,
         node: &dyn AnyNodeData,
-        layout: &Rc<LayoutTreeNode>,
+        layout: &EqualRc<LayoutTreeNode>,
     ) -> bool {
         let rect = Rect::new(position, layout.size);
 

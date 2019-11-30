@@ -39,7 +39,7 @@ pub enum Display {
 }
 
 /// Specifies which direction layout should be performed in.
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, PartialEq, Copy, Debug)]
 pub enum Direction {
     Vertical,
     Horizontal,
@@ -114,10 +114,10 @@ impl CommonAttributes {
     }
 }
 
-#[derive(Default, PartialEq, Clone, Copy)]
+#[derive(Default, PartialEq, Clone, Copy, Debug)]
 pub struct InlineValues {}
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct BlockValues {
     pub direction: Direction,
     pub margin: LogicalSideOffsets,
@@ -146,13 +146,13 @@ impl Default for BlockValues {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum DisplayType {
     Inline(InlineValues),
     Block(BlockValues),
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct ComputedValues {
     pub display: DisplayType,
     pub text_size: LogicalLength,

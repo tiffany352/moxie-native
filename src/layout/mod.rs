@@ -3,6 +3,7 @@
 
 use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
+use crate::util::equal_rc::EqualRc;
 use crate::util::word_break_iter;
 use euclid::{point2, size2, Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
@@ -11,8 +12,7 @@ use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
 use moxie::*;
 use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
-use std::ptr;
-use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct LogicalPixel;
 pub type LogicalPoint = Point2D<f32, LogicalPixel>;
@@ -27,7 +27,7 @@ pub struct LayoutChild {
     /// Child index of the DOM node this child is associated with.
     pub index: usize,
     pub position: LogicalPoint,
-    pub layout: Rc<LayoutTreeNode>,
+    pub layout: EqualRc<LayoutTreeNode>,
 }
 
 /// Information passed to the renderer for rendering text.
@@ -47,23 +47,28 @@ pub struct LayoutTreeNode {
     pub children: Vec<LayoutChild>,
 }
 
-#[derive(Clone)]
 struct TextLayoutInfo {
-    text: String,
-    size: f32,
-    max_width: f32,
+    session: RefCell<LayoutSession<String>>,
 }
 
 impl TextLayoutInfo {
-    fn advance_past_whitespace(&self, offset: usize) -> usize {
-        let string = self.text[offset..].trim_start();
-        string.as_ptr() as usize - self.text.as_ptr() as usize
+    #[topo::from_env(collection: &EqualRc<FontCollection>)]
+    fn new(text: String, size: f32) -> Self {
+        println!("new text layout {}, {}", text, size);
+        TextLayoutInfo {
+            session: RefCell::new(LayoutSession::create(text, &TextStyle { size }, collection)),
+        }
     }
 
-    #[topo::from_env(collection: &Rc<FontCollection>)]
+    fn advance_past_whitespace(&self, offset: usize) -> usize {
+        let session = self.session.borrow();
+        let text = session.text();
+        let string = text[offset..].trim_start();
+        string.as_ptr() as usize - text.as_ptr() as usize
+    }
+
     fn fill_line(&self, width: f32, offset: usize) -> (usize, f32, f32, f32) {
-        let mut session =
-            LayoutSession::create(&self.text, &TextStyle { size: self.size }, collection);
+        let mut session = self.session.borrow_mut();
 
         let mut x = 0.0;
         let mut height = 0.0f32;
@@ -72,13 +77,15 @@ impl TextLayoutInfo {
         let mut last_word_x = 0.0;
         let mut last_word_height = 0.0;
         let mut last_word_ascender = 0.0;
-        for word in word_break_iter::WordBreakIterator::new(&self.text[offset..]) {
-            let start = word.as_ptr() as usize - self.text.as_ptr() as usize;
+        let size = session.style().size;
+        let text = session.text().to_owned();
+        for word in word_break_iter::WordBreakIterator::new(&text[offset..]) {
+            let start = word.as_ptr() as usize - text.as_ptr() as usize;
             let end = start + word.len();
             for run in session.iter_substr(start..end) {
                 let font = run.font();
                 let metrics = font.font.metrics();
-                let units_per_px = metrics.units_per_em as f32 / self.size;
+                let units_per_px = metrics.units_per_em as f32 / size;
                 let line_height = (metrics.ascent - metrics.descent) / units_per_px;
                 let line_ascent = metrics.ascent / units_per_px;
                 for glyph in run.glyphs() {
@@ -112,43 +119,22 @@ impl TextLayoutInfo {
     }
 }
 
-struct BlockLayoutInputs {
-    values: BlockValues,
-    children: Vec<Rc<LayoutTreeNode>>,
-}
-
-impl PartialEq for BlockLayoutInputs {
-    fn eq(&self, other: &BlockLayoutInputs) -> bool {
-        if self.values != other.values {
-            return false;
-        }
-        if self.children.len() != other.children.len() {
-            return false;
-        }
-        for (a, b) in self.children.iter().zip(other.children.iter()) {
-            if !ptr::eq(a, b) {
-                return false;
-            }
-        }
-        true
-    }
-}
-
+#[derive(PartialEq)]
 enum InlineLayoutItem {
     Block {
         index: usize,
-        layout: Rc<LayoutTreeNode>,
+        layout: EqualRc<LayoutTreeNode>,
     },
     Text {
         index: usize,
-        text: TextLayoutInfo,
+        text: EqualRc<TextLayoutInfo>,
     },
 }
 
 /// Used to build the layout tree, with internal caching for
 /// performance.
 pub struct LayoutEngine {
-    runtime: Runtime<fn() -> Rc<LayoutTreeNode>, Rc<LayoutTreeNode>>,
+    runtime: Runtime<fn() -> EqualRc<LayoutTreeNode>, EqualRc<LayoutTreeNode>>,
 }
 
 impl LayoutEngine {
@@ -165,45 +151,42 @@ impl LayoutEngine {
         items: &mut Vec<InlineLayoutItem>,
     ) {
         for (index, child) in node.children().enumerate() {
-            match child {
-                DynamicNode::Node(node) => {
-                    let values = node.computed_values().get().unwrap();
-                    match values.display {
-                        DisplayType::Block(ref block) => {
-                            let layout = Self::layout_block(node, &values, block, max_size);
-                            items.push(InlineLayoutItem::Block { index, layout });
+            topo::call! {
+                {
+                    match child {
+                        DynamicNode::Node(node) => {
+                            let values = node.computed_values().get().unwrap();
+                            match values.display {
+                                DisplayType::Block(ref block) => {
+                                    let layout = Self::layout_block(node, &values, block, max_size).into();
+                                    items.push(InlineLayoutItem::Block { index, layout });
+                                }
+                                DisplayType::Inline(_) => {
+                                    Self::collect_inline_items(node, &values, max_size, items);
+                                }
+                            }
                         }
-                        DisplayType::Inline(_) => {
-                            Self::collect_inline_items(node, &values, max_size, items);
-                        }
+                        DynamicNode::Text(text) => items.push(InlineLayoutItem::Text {
+                            text: memo!((text.to_owned(), parent_values.text_size.get()), move |(text, size)| {
+                                EqualRc::new(TextLayoutInfo::new(
+                                    (*text).to_owned(),
+                                    *size,
+                                ))
+                            }).into(),
+                            index,
+                        })
                     }
                 }
-                DynamicNode::Text(text) => items.push(InlineLayoutItem::Text {
-                    text: TextLayoutInfo {
-                        text: text.to_owned(),
-                        size: parent_values.text_size.get(),
-                        max_width: max_size.width,
-                    },
-                    index,
-                }),
             }
         }
     }
 
-    fn layout_inline(
-        node: &dyn AnyNodeData,
-        values: &ComputedValues,
-        max_size: LogicalSize,
-    ) -> Rc<LayoutTreeNode> {
-        let mut items = vec![];
-
-        Self::collect_inline_items(node, values, max_size, &mut items);
-
+    fn calc_inline_layout(max_width: f32, items: &[InlineLayoutItem]) -> EqualRc<LayoutTreeNode> {
         struct LineItem {
             ascender: f32,
             index: usize,
             x: f32,
-            layout: Rc<LayoutTreeNode>,
+            layout: EqualRc<LayoutTreeNode>,
         }
 
         struct LineState {
@@ -240,7 +223,7 @@ impl LayoutEngine {
                 self.line_ascender = 0.0;
             }
 
-            fn insert_block_item(&mut self, index: usize, layout: Rc<LayoutTreeNode>) {
+            fn insert_block_item(&mut self, index: usize, layout: EqualRc<LayoutTreeNode>) {
                 let size = layout.size;
                 if self.x + size.width > self.max_width {
                     self.carriage_return();
@@ -255,9 +238,9 @@ impl LayoutEngine {
                 self.line_height = self.line_height.max(size.height);
             }
 
-            fn insert_inline_item(&mut self, index: usize, text: TextLayoutInfo) {
+            fn insert_inline_item(&mut self, index: usize, text: &TextLayoutInfo) {
                 let mut offset = 0;
-                while offset < text.text.len() {
+                while offset < text.session.borrow().text().len() {
                     let remaining = self.max_width - self.x;
                     let (end, mut width, mut this_line_height, mut ascender) =
                         text.fill_line(remaining, offset);
@@ -288,10 +271,10 @@ impl LayoutEngine {
                         index,
                         ascender,
                         x: self.x,
-                        layout: Rc::new(LayoutTreeNode {
+                        layout: EqualRc::new(LayoutTreeNode {
                             render_text: Some(LayoutText {
-                                text: text.text[start..offset].to_owned(),
-                                size: text.size,
+                                text: text.session.borrow().text()[start..offset].to_owned(),
+                                size: text.session.borrow().style().size,
                             }),
                             size: size2(width, this_line_height),
                             margin: LogicalSideOffsets::default(),
@@ -307,7 +290,7 @@ impl LayoutEngine {
 
         let mut state = LineState {
             children: vec![],
-            max_width: max_size.width,
+            max_width,
             x: 0.0f32,
             height: 0.0f32,
             line_height: 0.0f32,
@@ -318,19 +301,35 @@ impl LayoutEngine {
 
         for item in items {
             match item {
-                InlineLayoutItem::Block { index, layout } => state.insert_block_item(index, layout),
-                InlineLayoutItem::Text { index, text } => state.insert_inline_item(index, text),
+                InlineLayoutItem::Block { index, layout } => {
+                    state.insert_block_item(*index, layout.clone().into())
+                }
+                InlineLayoutItem::Text { index, text } => state.insert_inline_item(*index, &*text),
             }
         }
         state.carriage_return();
         let size = size2(state.longest_line, state.height);
         let children = state.children;
 
-        Rc::new(LayoutTreeNode {
+        EqualRc::new(LayoutTreeNode {
             render_text: None,
             margin: LogicalSideOffsets::default(),
             size,
             children,
+        })
+    }
+
+    fn layout_inline(
+        node: &dyn AnyNodeData,
+        values: &ComputedValues,
+        max_size: LogicalSize,
+    ) -> EqualRc<LayoutTreeNode> {
+        let mut items = vec![];
+
+        Self::collect_inline_items(node, values, max_size, &mut items);
+
+        memo!((max_size.width, items), |(max_width, items)| {
+            Self::calc_inline_layout(*max_width, &items[..])
         })
     }
 
@@ -345,9 +344,12 @@ impl LayoutEngine {
         outer - size2(values.padding.horizontal(), values.padding.vertical())
     }
 
-    fn calc_block_layout(input: &BlockLayoutInputs) -> Rc<LayoutTreeNode> {
-        let values = &input.values;
-        let children = &input.children;
+    fn calc_block_layout(
+        input: &(BlockValues, Vec<EqualRc<LayoutTreeNode>>),
+    ) -> EqualRc<LayoutTreeNode> {
+        let (values, children) = input;
+
+        println!("calc_block_layout num_children={}", children.len());
 
         let mut width = 0.0f32;
         let mut height = 0.0f32;
@@ -386,7 +388,7 @@ impl LayoutEngine {
 
         let margin = values.margin;
 
-        Rc::new(LayoutTreeNode {
+        EqualRc::new(LayoutTreeNode {
             size,
             margin,
             children: child_positions,
@@ -399,13 +401,13 @@ impl LayoutEngine {
         values: &ComputedValues,
         block_values: &BlockValues,
         parent_max_size: LogicalSize,
-    ) -> Rc<LayoutTreeNode> {
-        topo::call! {
-            {
-                let max_size = Self::calc_max_size(block_values, parent_max_size);
+    ) -> EqualRc<LayoutTreeNode> {
+        let max_size = Self::calc_max_size(block_values, parent_max_size);
 
-                let mut children = vec![];
-                for child in node.children() {
+        let mut children = vec![];
+        for child in node.children() {
+            topo::call! {
+                {
                     match child {
                         DynamicNode::Node(node) => {
                             let values = node.computed_values().get().unwrap();
@@ -419,38 +421,31 @@ impl LayoutEngine {
                             }
                         }
                         DynamicNode::Text(text) => {
-                            let text = TextLayoutInfo {
-                                text: text.to_owned(),
-                                size: values.text_size.get(),
-                                max_width: max_size.width,
-                            };
-                            let (_, width, height, _) = text.fill_line(999999.0, 0);
-                            children.push(Rc::new(LayoutTreeNode {
-                                size: size2(width, height),
-                                margin: LogicalSideOffsets::default(),
-                                render_text: Some(LayoutText {
-                                    text: text.text,
-                                    size: text.size,
-                                }),
-                                children: vec![],
+                            children.push(memo!((text.to_owned(), values.text_size.get()), |(text, size)| {
+                                let text = TextLayoutInfo::new((*text).to_owned(), *size);
+                                let (_, width, height, _) = text.fill_line(999999.0, 0);
+                                let session = text.session.borrow();
+                                EqualRc::new(LayoutTreeNode {
+                                    size: size2(width, height),
+                                    margin: LogicalSideOffsets::default(),
+                                    render_text: Some(LayoutText {
+                                        text: session.text().to_owned(),
+                                        size: session.style().size,
+                                    }),
+                                    children: vec![],
+                                })
                             }))
                         }
                     }
                 }
-
-                moxie::memo!(
-                    BlockLayoutInputs {
-                        values: block_values.clone(),
-                        children
-                    },
-                    Self::calc_block_layout
-                )
             }
         }
+
+        moxie::memo!((block_values.clone(), children), Self::calc_block_layout)
     }
 
     #[topo::from_env(node: &Node<Window>, size: &LogicalSize)]
-    fn run_layout() -> Rc<LayoutTreeNode> {
+    fn run_layout() -> EqualRc<LayoutTreeNode> {
         let collection = once!(|| {
             let mut collection = FontCollection::new();
             let source = SystemSource::new();
@@ -461,7 +456,7 @@ impl LayoutEngine {
                 .unwrap();
             collection.add_family(FontFamily::new_from_font(font));
 
-            Rc::new(collection)
+            EqualRc::new(collection)
         });
 
         topo::call!(
@@ -475,14 +470,14 @@ impl LayoutEngine {
                 }
             },
             env! {
-                Rc<FontCollection> => collection,
+                EqualRc<FontCollection> => collection,
             }
         )
     }
 
     /// Perform a layout step based on the new DOM and content size, and
     /// return a fresh layout tree.
-    pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> Rc<LayoutTreeNode> {
+    pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> EqualRc<LayoutTreeNode> {
         topo::call!(
             { self.runtime.run_once() },
             env! {
