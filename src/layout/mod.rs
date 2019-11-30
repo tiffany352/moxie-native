@@ -11,7 +11,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
 use moxie::*;
-use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
+use skribo::{FontCollection, FontFamily, FontRef, LayoutSession, TextStyle};
 use std::cell::RefCell;
 
 pub struct LogicalPixel;
@@ -30,10 +30,19 @@ pub struct LayoutChild {
     pub layout: EqualRc<LayoutTreeNode>,
 }
 
+pub struct Glyph {
+    pub index: u32,
+    pub offset: LogicalPoint,
+}
+
+pub struct TextFragment {
+    pub font: FontRef,
+    pub glyphs: Vec<Glyph>,
+}
+
 /// Information passed to the renderer for rendering text.
 pub struct LayoutText {
-    /// A piece of the text. This corresponds to roughly one line of text, but not always.
-    pub text: String,
+    pub fragments: Vec<TextFragment>,
     /// The text size of the text.
     pub size: f32,
 }
@@ -49,6 +58,13 @@ pub struct LayoutTreeNode {
 
 struct TextLayoutInfo {
     session: RefCell<LayoutSession<String>>,
+}
+
+struct FilledLine {
+    end: usize,
+    width: f32,
+    height: f32,
+    ascender: f32,
 }
 
 impl TextLayoutInfo {
@@ -67,7 +83,7 @@ impl TextLayoutInfo {
         string.as_ptr() as usize - text.as_ptr() as usize
     }
 
-    fn fill_line(&self, width: f32, offset: usize) -> (usize, f32, f32, f32) {
+    fn fill_line(&self, width: f32, offset: usize) -> FilledLine {
         let mut session = self.session.borrow_mut();
 
         let mut x = 0.0;
@@ -92,12 +108,12 @@ impl TextLayoutInfo {
                     let new_x = glyph.offset.x
                         + font.font.advance(glyph.glyph_id).unwrap().x / units_per_px;
                     if last_word_x + new_x > width {
-                        return (
-                            last_word_end,
-                            last_word_x,
-                            last_word_height,
-                            last_word_ascender,
-                        );
+                        return FilledLine {
+                            end: last_word_end,
+                            width: last_word_x,
+                            height: last_word_height,
+                            ascender: last_word_ascender,
+                        };
                     }
                     x = last_word_x + new_x;
                     height = height.max(line_height);
@@ -110,12 +126,34 @@ impl TextLayoutInfo {
             last_word_ascender = ascender;
         }
 
-        (
-            last_word_end,
-            last_word_x,
-            last_word_height,
-            last_word_ascender,
-        )
+        FilledLine {
+            end: last_word_end,
+            width: last_word_x,
+            height: last_word_height,
+            ascender: last_word_ascender,
+        }
+    }
+
+    fn finalize(&self, start: usize, end: usize) -> LayoutText {
+        let size = self.session.borrow().style().size;
+        let mut fragments = vec![];
+        for run in self.session.borrow_mut().iter_substr(start..end) {
+            let font = run.font().to_owned();
+            let metrics = font.font.metrics();
+            let units_per_px = metrics.units_per_em as f32 / size;
+            let baseline_offset = metrics.ascent / units_per_px;
+
+            let glyphs = run
+                .glyphs()
+                .map(|glyph| Glyph {
+                    index: glyph.glyph_id,
+                    offset: point2(glyph.offset.x, glyph.offset.y + baseline_offset),
+                })
+                .collect();
+            fragments.push(TextFragment { font, glyphs });
+        }
+
+        LayoutText { fragments, size }
     }
 }
 
@@ -242,48 +280,38 @@ impl LayoutEngine {
                 let mut offset = 0;
                 while offset < text.session.borrow().text().len() {
                     let remaining = self.max_width - self.x;
-                    let (end, mut width, mut this_line_height, mut ascender) =
-                        text.fill_line(remaining, offset);
+                    let mut line = text.fill_line(remaining, offset);
                     let mut start = offset;
-                    offset += end;
-                    if end == 0 {
+                    offset += line.end;
+                    if line.end == 0 {
                         self.carriage_return();
                         offset = text.advance_past_whitespace(offset);
                         start = offset;
-                        let (end, new_width, new_line_height, new_ascender) =
-                            text.fill_line(self.max_width, offset);
-                        width = new_width;
-                        this_line_height = new_line_height;
-                        ascender = new_ascender;
-                        offset += end;
-                        if end == 0 {
+                        line = text.fill_line(self.max_width, offset);
+                        offset += line.end;
+                        if line.end == 0 {
                             // overflow
-                            let (end, new_width, new_line_height, new_ascender) =
-                                text.fill_line(99999999.0, offset);
-                            offset += end;
-                            width = new_width;
-                            this_line_height = new_line_height;
-                            ascender = new_ascender;
+                            line = text.fill_line(99999999.0, offset);
+                            offset += line.end;
                         }
                     }
 
+                    let layout_text = text.finalize(start, offset);
+
                     self.line_items.push(LineItem {
                         index,
-                        ascender,
+                        ascender: line.ascender,
                         x: self.x,
                         layout: EqualRc::new(LayoutTreeNode {
-                            render_text: Some(LayoutText {
-                                text: text.session.borrow().text()[start..offset].to_owned(),
-                                size: text.session.borrow().style().size,
-                            }),
-                            size: size2(width, this_line_height),
+                            render_text: Some(layout_text),
+                            size: size2(line.width, line.height),
                             margin: LogicalSideOffsets::default(),
                             children: vec![],
                         }),
                     });
-                    self.x += width;
-                    self.line_height = self.line_height.max(this_line_height);
-                    self.line_ascender = self.line_ascender.max(ascender);
+                    self.x += line.width;
+                    self.line_height = self.line_height.max(line.height);
+                    self.line_ascender = self.line_ascender.max(line.ascender);
                 }
             }
         }
@@ -423,15 +451,12 @@ impl LayoutEngine {
                         DynamicNode::Text(text) => {
                             children.push(memo!((text.to_owned(), values.text_size.get()), |(text, size)| {
                                 let text = TextLayoutInfo::new((*text).to_owned(), *size);
-                                let (_, width, height, _) = text.fill_line(999999.0, 0);
-                                let session = text.session.borrow();
+                                let line = text.fill_line(999999.0, 0);
+                                let layout_text = text.finalize(0, line.end);
                                 EqualRc::new(LayoutTreeNode {
-                                    size: size2(width, height),
+                                    size: size2(line.width, line.height),
                                     margin: LogicalSideOffsets::default(),
-                                    render_text: Some(LayoutText {
-                                        text: session.text().to_owned(),
-                                        size: session.style().size,
-                                    }),
+                                    render_text: Some(layout_text),
                                     children: vec![],
                                 })
                             }))

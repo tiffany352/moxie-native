@@ -4,11 +4,8 @@ use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::style::StyleEngine;
 use crate::util::equal_rc::EqualRc;
 use crate::Color;
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
 use gleam::gl;
-use skribo::{FontCollection, FontFamily, FontRef, LayoutSession, TextStyle};
+use skribo::FontRef;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc;
@@ -19,7 +16,7 @@ use webrender::{
         Epoch, FontInstanceKey, FontKey, GlyphInstance, PipelineId, PrimitiveFlags, RenderApi,
         RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
-    euclid::{point2, size2, vec2, Point2D, Rect, Scale, Size2D},
+    euclid::{point2, size2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
 };
 use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window as WinitWindow};
@@ -204,37 +201,30 @@ impl Context {
             }
         }
 
-        if let Some(LayoutText { ref text, size }) = layout.render_text {
-            let mut collection = FontCollection::new();
-            let source = SystemSource::new();
-            let font = source
-                .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-                .unwrap()
-                .load()
-                .unwrap();
-            collection.add_family(FontFamily::new_from_font(font));
-
-            let mut layout = LayoutSession::create(text, &TextStyle { size }, &collection);
+        if let Some(LayoutText {
+            ref fragments,
+            size,
+        }) = layout.render_text
+        {
             let color = Color::new(0, 0, 0, 255);
             builder.push_simple_stacking_context(
                 point2(0.0, 0.0),
                 space_and_clip.spatial_id,
                 PrimitiveFlags::IS_BACKFACE_VISIBLE,
             );
-            for run in layout.iter_substr(0..text.len()) {
-                let font = run.font();
-                let metrics = font.font.metrics();
-                let units_per_px = metrics.units_per_em as f32 / size;
-                let baseline_offset = metrics.ascent / units_per_px;
-                let mut glyphs = vec![];
-                for glyph in run.glyphs() {
-                    let pos = position + vec2(glyph.offset.x, glyph.offset.y + baseline_offset);
-                    glyphs.push(GlyphInstance {
-                        index: glyph.glyph_id,
-                        point: pos * Scale::new(1.0),
+            for fragment in fragments {
+                let glyphs = fragment
+                    .glyphs
+                    .iter()
+                    .map(|glyph| {
+                        let pos = position + glyph.offset.to_vector();
+                        GlyphInstance {
+                            index: glyph.index,
+                            point: pos * Scale::new(1.0),
+                        }
                     })
-                }
-                let font_key = self.get_font(font, transaction);
+                    .collect::<Vec<_>>();
+                let font_key = self.get_font(&fragment.font, transaction);
                 let key = self.get_font_instance(font_key, size as usize, transaction);
                 builder.push_text(
                     &CommonItemProperties::new(rect, space_and_clip),
