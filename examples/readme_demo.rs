@@ -21,8 +21,8 @@ const MY_STYLE: Style = define_style! {
 // This attribute is used to introduce a new nesting context, which lets the
 // runtime efficiently keep track of object states over multiple renders.
 #[topo::nested]
-// This is the root component, which is expected to return an array of windows.
-fn my_app() -> Vec<Node<Window>> {
+// This is the root component, which is expected to return an App element.
+fn my_app() -> Node<App> {
     // Declare a state variable, this works kind of like a React useState() hook.
     let click_count: Key<usize> = state!(|| 0);
 
@@ -35,22 +35,24 @@ fn my_app() -> Vec<Node<Window>> {
 
     // The mox! macro lets us use nice syntax for declaring elements.
     // This acts like JSX in React.
-    vec![mox! {
-        <window title="Moxie-Native Demo">
-            <view>
-                // Every element has a style attribute which can be used to add a style.
-                <button style={MY_STYLE} on={on_click}>
-                    // Text can only inside of spans. Attributes and parent-child
-                    // relationships are checked at compile time to ensure validity.
-                    <span>
-                        "Click me! Total clicks: "
-                        // Formatting can be done inline using this shorthand syntax.
-                        {% "{}", click_count}
-                    </span>
-                </button>
-            </view>
-        </window>
-    }]
+    mox! {
+        <app>
+            <window title="Moxie-Native Demo">
+                <view>
+                    // Every element has a style attribute which can be used to add a style.
+                    <button style={MY_STYLE} on={on_click}>
+                        // Text can only inside of spans. Attributes and parent-child
+                        // relationships are checked at compile time to ensure validity.
+                        <span>
+                            "Click me! Total clicks: "
+                            // Formatting can be done inline using this shorthand syntax.
+                            {% "{}", click_count}
+                        </span>
+                    </button>
+                </view>
+            </window>
+        </app>
+    }
 }
 
 fn main() {

@@ -146,43 +146,45 @@ fn calc_function(state: Key<CalcState>, message: Message) -> Node<Button> {
 }
 
 #[topo::nested]
-fn app() -> Vec<Node<Window>> {
+fn calculator() -> Node<App> {
     let state: Key<CalcState> = state!(|| CalcState::new());
 
-    vec![mox! {
-        <window title="Moxie-Native Calculator">
-            <view style={ROW_STYLE}>
-                <span>{% "{}", state.display()}</span>
-            </view>
-            <view style={ROW_STYLE}>
-                <calc_function _=(state.clone(), Message::Digit(7)) />
-                <calc_function _=(state.clone(), Message::Digit(8)) />
-                <calc_function _=(state.clone(), Message::Digit(9)) />
-                <calc_function _=(state.clone(), Message::Op(Op::Mul)) />
-            </view>
-            <view style={ROW_STYLE}>
-                <calc_function _=(state.clone(), Message::Digit(4)) />
-                <calc_function _=(state.clone(), Message::Digit(5)) />
-                <calc_function _=(state.clone(), Message::Digit(6)) />
-                <calc_function _=(state.clone(), Message::Op(Op::Div)) />
-            </view>
-            <view style={ROW_STYLE}>
-                <calc_function _=(state.clone(), Message::Digit(1)) />
-                <calc_function _=(state.clone(), Message::Digit(2)) />
-                <calc_function _=(state.clone(), Message::Digit(3)) />
-                <calc_function _=(state.clone(), Message::Op(Op::Add)) />
-            </view>
-            <view style={ROW_STYLE}>
-                <calc_function _=(state.clone(), Message::Digit(0)) />
-                <calc_function _=(state.clone(), Message::Equ) />
-                <calc_function _=(state.clone(), Message::Cls) />
-                <calc_function _=(state.clone(), Message::Op(Op::Sub)) />
-            </view>
-        </window>
-    }]
+    mox! {
+        <app>
+            <window title="Moxie-Native Calculator">
+                <view style={ROW_STYLE}>
+                    <span>{% "{}", state.display()}</span>
+                </view>
+                <view style={ROW_STYLE}>
+                    <calc_function _=(state.clone(), Message::Digit(7)) />
+                    <calc_function _=(state.clone(), Message::Digit(8)) />
+                    <calc_function _=(state.clone(), Message::Digit(9)) />
+                    <calc_function _=(state.clone(), Message::Op(Op::Mul)) />
+                </view>
+                <view style={ROW_STYLE}>
+                    <calc_function _=(state.clone(), Message::Digit(4)) />
+                    <calc_function _=(state.clone(), Message::Digit(5)) />
+                    <calc_function _=(state.clone(), Message::Digit(6)) />
+                    <calc_function _=(state.clone(), Message::Op(Op::Div)) />
+                </view>
+                <view style={ROW_STYLE}>
+                    <calc_function _=(state.clone(), Message::Digit(1)) />
+                    <calc_function _=(state.clone(), Message::Digit(2)) />
+                    <calc_function _=(state.clone(), Message::Digit(3)) />
+                    <calc_function _=(state.clone(), Message::Op(Op::Add)) />
+                </view>
+                <view style={ROW_STYLE}>
+                    <calc_function _=(state.clone(), Message::Digit(0)) />
+                    <calc_function _=(state.clone(), Message::Equ) />
+                    <calc_function _=(state.clone(), Message::Cls) />
+                    <calc_function _=(state.clone(), Message::Op(Op::Sub)) />
+                </view>
+            </window>
+        </app>
+    }
 }
 
 fn main() {
-    let runtime = moxie_native::Runtime::new(|| app!());
+    let runtime = moxie_native::Runtime::new(|| calculator!());
     runtime.start();
 }

@@ -66,6 +66,7 @@ macro_rules! element_handlers {
     };
 }
 
+pub mod app;
 pub mod button;
 pub mod span;
 pub mod view;

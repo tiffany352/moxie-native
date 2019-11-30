@@ -83,6 +83,14 @@ where
     }
 }
 
+/// The root of the DOM.
+#[macro_export]
+macro_rules! app {
+    ($with_elem:expr) => {
+        $crate::moxie::Builder::<$crate::dom::App>::create($with_elem)
+    };
+}
+
 /// Top level window.
 #[macro_export]
 macro_rules! window {

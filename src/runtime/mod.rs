@@ -1,4 +1,4 @@
-use crate::dom::{Node, Window};
+use crate::dom::{App, Node};
 use ::moxie::embed::Runtime as MoxieRuntime;
 use std::collections::HashMap;
 use std::iter;
@@ -12,7 +12,7 @@ mod window;
 
 /// Contains the event loop and the root component of the application.
 pub struct Runtime {
-    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Vec<Node<Window>> + 'static>, Vec<Node<Window>>>,
+    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Node<App> + 'static>, Node<App>>,
     windows: HashMap<WindowId, window::Window>,
     window_ids: Vec<WindowId>,
     proxy: Option<EventLoopProxy<()>>,
@@ -20,7 +20,7 @@ pub struct Runtime {
 
 impl Runtime {
     /// Create a new runtime based on the application's root component.
-    pub fn new(mut root: impl FnMut() -> Vec<Node<Window>> + 'static) -> Runtime {
+    pub fn new(mut root: impl FnMut() -> Node<App> + 'static) -> Runtime {
         Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || topo::call!({ root() }))),
             windows: HashMap::new(),
@@ -53,9 +53,9 @@ impl Runtime {
     /// Updates the moxie runtime and reconciles the DOM changes,
     /// re-rendering if things have changed.
     fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
-        let windows = self.moxie_runtime.run_once();
+        let app = self.moxie_runtime.run_once();
 
-        let first_iter = windows.into_iter().map(Some).chain(iter::repeat(None));
+        let first_iter = app.children().iter().map(Some).chain(iter::repeat(None));
         let second_iter = self
             .window_ids
             .drain(..)
@@ -68,13 +68,13 @@ impl Runtime {
             match (dom_window, window_id) {
                 (Some(dom_window), Some(window_id)) => {
                     let window = self.windows.get_mut(&window_id).unwrap();
-                    window.set_dom_window(dom_window);
+                    window.set_dom_window(dom_window.clone());
                     window.render();
                     self.window_ids.push(window_id);
                 }
                 (Some(dom_window), None) => {
                     let window = window::Window::new(
-                        dom_window,
+                        dom_window.clone(),
                         event_loop,
                         self.proxy.as_ref().unwrap().clone(),
                     );

@@ -36,7 +36,7 @@ const SQUARE_STYLE: Style = define_style! {
 };
 
 #[topo::nested]
-fn foo() -> Vec<Node<Window>> {
+fn foo() -> Node<App> {
     let click_count: Key<u32> = state!(|| 0);
 
     let click_count2 = click_count.clone();
@@ -44,26 +44,28 @@ fn foo() -> Vec<Node<Window>> {
         click_count2.update(|count| Some(count + 1));
     };
 
-    vec![mox! {
-        <window>
-            <view style={CONTAINER_STYLE}>
-                <span style={H1_STYLE}>
-                    "Bigger Te" "xt"
-                </span>
-                <span>
-                    "foo bar baz"
-                    " the quick brown fox "<span style={H1_STYLE}>"jumps"</span><view style={SQUARE_STYLE}></view>" over the lazy dog"
-                </span>
-                <button on={on_click} style={BUTTON_STYLE}>
-                    <span>
-                        "Clicked " {% "{}", click_count} " times)"
+    mox! {
+        <app>
+            <window>
+                <view style={CONTAINER_STYLE}>
+                    <span style={H1_STYLE}>
+                        "Bigger Te" "xt"
                     </span>
-                </button>
-                <view style={VIEW1_STYLE}></view>
-                <view style={VIEW2_STYLE}></view>
-            </view>
-        </window>
-    }]
+                    <span>
+                        "foo bar baz"
+                        " the quick brown fox "<span style={H1_STYLE}>"jumps"</span><view style={SQUARE_STYLE}></view>" over the lazy dog"
+                    </span>
+                    <button on={on_click} style={BUTTON_STYLE}>
+                        <span>
+                            "Clicked " {% "{}", click_count} " times)"
+                        </span>
+                    </button>
+                    <view style={VIEW1_STYLE}></view>
+                    <view style={VIEW2_STYLE}></view>
+                </view>
+            </window>
+        </app>
+    }
 }
 
 fn main() {
