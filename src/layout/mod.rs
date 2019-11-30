@@ -61,15 +61,17 @@ impl TextLayoutInfo {
     }
 
     #[topo::from_env(collection: &Rc<FontCollection>)]
-    fn fill_line(&self, width: f32, offset: usize) -> (usize, f32, f32) {
+    fn fill_line(&self, width: f32, offset: usize) -> (usize, f32, f32, f32) {
         let mut session =
             LayoutSession::create(&self.text, &TextStyle { size: self.size }, collection);
 
         let mut x = 0.0;
         let mut height = 0.0f32;
+        let mut ascender = 0.0f32;
         let mut last_word_end = 0;
         let mut last_word_x = 0.0;
         let mut last_word_height = 0.0;
+        let mut last_word_ascender = 0.0;
         for word in word_break_iter::WordBreakIterator::new(&self.text[offset..]) {
             let start = word.as_ptr() as usize - self.text.as_ptr() as usize;
             let end = start + word.len();
@@ -78,22 +80,35 @@ impl TextLayoutInfo {
                 let metrics = font.font.metrics();
                 let units_per_px = metrics.units_per_em as f32 / self.size;
                 let line_height = (metrics.ascent - metrics.descent) / units_per_px;
+                let line_ascent = metrics.ascent / units_per_px;
                 for glyph in run.glyphs() {
                     let new_x = glyph.offset.x
                         + font.font.advance(glyph.glyph_id).unwrap().x / units_per_px;
                     if last_word_x + new_x > width {
-                        return (last_word_end, last_word_x, last_word_height);
+                        return (
+                            last_word_end,
+                            last_word_x,
+                            last_word_height,
+                            last_word_ascender,
+                        );
                     }
                     x = last_word_x + new_x;
                     height = height.max(line_height);
+                    ascender = ascender.max(line_ascent);
                 }
             }
             last_word_end = end - offset;
             last_word_x = x;
             last_word_height = height;
+            last_word_ascender = ascender;
         }
 
-        (last_word_end, last_word_x, last_word_height)
+        (
+            last_word_end,
+            last_word_x,
+            last_word_height,
+            last_word_ascender,
+        )
     }
 }
 
@@ -163,7 +178,7 @@ impl LayoutEngine {
                         }
                     }
                 }
-                DynamicNode::Str(text) => items.push(InlineLayoutItem::Text {
+                DynamicNode::Text(text) => items.push(InlineLayoutItem::Text {
                     text: TextLayoutInfo {
                         text: text.to_owned(),
                         size: parent_values.text_size.get(),
@@ -184,85 +199,138 @@ impl LayoutEngine {
 
         Self::collect_inline_items(node, values, max_size, &mut items);
 
-        let mut child_positions = vec![];
-        let mut x = 0.0f32;
-        let mut height = 0.0f32;
-        let mut line_height = 0.0f32;
-        let mut longest_line = 0.0f32;
-        for item in items {
-            match item {
-                InlineLayoutItem::Block { index, layout } => {
-                    let size = layout.size;
-                    if x + size.width > max_size.width {
-                        height += line_height;
-                        longest_line = longest_line.max(x);
-                        x = 0.0;
-                        line_height = 0.0;
-                    }
-                    child_positions.push(LayoutChild {
-                        position: point2(x, height),
+        struct LineItem {
+            ascender: f32,
+            index: usize,
+            x: f32,
+            layout: Rc<LayoutTreeNode>,
+        }
+
+        struct LineState {
+            children: Vec<LayoutChild>,
+            max_width: f32,
+            x: f32,
+            height: f32,
+            line_height: f32,
+            line_ascender: f32,
+            longest_line: f32,
+            line_items: Vec<LineItem>,
+        }
+
+        impl LineState {
+            fn carriage_return(&mut self) {
+                for LineItem {
+                    ascender,
+                    index,
+                    x,
+                    layout,
+                } in self.line_items.drain(..)
+                {
+                    self.children.push(LayoutChild {
+                        position: point2(x, self.height + self.line_ascender - ascender),
                         index,
                         layout,
                     });
-                    x += size.width;
-                    line_height = line_height.max(size.height);
                 }
-                InlineLayoutItem::Text { index, text } => {
-                    let mut offset = 0;
-                    while offset < text.text.len() {
-                        let remaining = max_size.width - x;
-                        let (end, mut width, mut this_line_height) =
-                            text.fill_line(remaining, offset);
-                        let mut start = offset;
+
+                self.height += self.line_height;
+                self.longest_line = self.longest_line.max(self.x);
+                self.x = 0.0;
+                self.line_height = 0.0;
+                self.line_ascender = 0.0;
+            }
+
+            fn insert_block_item(&mut self, index: usize, layout: Rc<LayoutTreeNode>) {
+                let size = layout.size;
+                if self.x + size.width > self.max_width {
+                    self.carriage_return();
+                }
+                self.line_items.push(LineItem {
+                    x: self.x,
+                    ascender: size.height,
+                    index,
+                    layout,
+                });
+                self.x += size.width;
+                self.line_height = self.line_height.max(size.height);
+            }
+
+            fn insert_inline_item(&mut self, index: usize, text: TextLayoutInfo) {
+                let mut offset = 0;
+                while offset < text.text.len() {
+                    let remaining = self.max_width - self.x;
+                    let (end, mut width, mut this_line_height, mut ascender) =
+                        text.fill_line(remaining, offset);
+                    let mut start = offset;
+                    offset += end;
+                    if end == 0 {
+                        self.carriage_return();
+                        offset = text.advance_past_whitespace(offset);
+                        start = offset;
+                        let (end, new_width, new_line_height, new_ascender) =
+                            text.fill_line(self.max_width, offset);
+                        width = new_width;
+                        this_line_height = new_line_height;
+                        ascender = new_ascender;
                         offset += end;
                         if end == 0 {
-                            height += line_height;
-                            longest_line = longest_line.max(x);
-                            x = 0.0;
-                            line_height = 0.0;
-                            offset = text.advance_past_whitespace(offset);
-                            start = offset;
-                            let (end, new_width, new_line_height) =
-                                text.fill_line(max_size.width, offset);
+                            // overflow
+                            let (end, new_width, new_line_height, new_ascender) =
+                                text.fill_line(99999999.0, offset);
+                            offset += end;
                             width = new_width;
                             this_line_height = new_line_height;
-                            offset += end;
-                            if end == 0 {
-                                // overflow
-                                let (end, new_width, new_line_height) =
-                                    text.fill_line(99999999.0, offset);
-                                offset += end;
-                                width = new_width;
-                                this_line_height = new_line_height;
-                            }
+                            ascender = new_ascender;
                         }
-
-                        child_positions.push(LayoutChild {
-                            index,
-                            position: point2(x, height),
-                            layout: Rc::new(LayoutTreeNode {
-                                render_text: Some(LayoutText {
-                                    text: text.text[start..offset].to_owned(),
-                                    size: text.size,
-                                }),
-                                size: size2(width, this_line_height),
-                                margin: LogicalSideOffsets::default(),
-                                children: vec![],
-                            }),
-                        });
-                        x += width;
-                        line_height = line_height.max(this_line_height);
                     }
+
+                    self.line_items.push(LineItem {
+                        index,
+                        ascender,
+                        x: self.x,
+                        layout: Rc::new(LayoutTreeNode {
+                            render_text: Some(LayoutText {
+                                text: text.text[start..offset].to_owned(),
+                                size: text.size,
+                            }),
+                            size: size2(width, this_line_height),
+                            margin: LogicalSideOffsets::default(),
+                            children: vec![],
+                        }),
+                    });
+                    self.x += width;
+                    self.line_height = self.line_height.max(this_line_height);
+                    self.line_ascender = self.line_ascender.max(ascender);
                 }
             }
         }
-        let min_size = size2(longest_line.max(x), height + line_height);
+
+        let mut state = LineState {
+            children: vec![],
+            max_width: max_size.width,
+            x: 0.0f32,
+            height: 0.0f32,
+            line_height: 0.0f32,
+            line_ascender: 0.0f32,
+            longest_line: 0.0f32,
+            line_items: vec![],
+        };
+
+        for item in items {
+            match item {
+                InlineLayoutItem::Block { index, layout } => state.insert_block_item(index, layout),
+                InlineLayoutItem::Text { index, text } => state.insert_inline_item(index, text),
+            }
+        }
+        state.carriage_return();
+        let size = size2(state.longest_line, state.height);
+        let children = state.children;
 
         Rc::new(LayoutTreeNode {
             render_text: None,
-            size: min_size,
             margin: LogicalSideOffsets::default(),
-            children: child_positions,
+            size,
+            children,
         })
     }
 
@@ -350,13 +418,13 @@ impl LayoutEngine {
                                 }
                             }
                         }
-                        DynamicNode::Str(text) => {
+                        DynamicNode::Text(text) => {
                             let text = TextLayoutInfo {
                                 text: text.to_owned(),
                                 size: values.text_size.get(),
                                 max_width: max_size.width,
                             };
-                            let (_, width, height) = text.fill_line(999999.0, 0);
+                            let (_, width, height, _) = text.fill_line(999999.0, 0);
                             children.push(Rc::new(LayoutTreeNode {
                                 size: size2(width, height),
                                 margin: LogicalSideOffsets::default(),

@@ -64,8 +64,23 @@ impl ElementStates for () {
 }
 
 pub enum DynamicNode<'a> {
-    Str(&'a str),
+    Text(&'a str),
     Node(&'a dyn AnyNodeData),
+}
+
+impl<'a, Elt> From<&'a Node<Elt>> for DynamicNode<'a>
+where
+    Elt: Element,
+{
+    fn from(value: &'a Node<Elt>) -> Self {
+        DynamicNode::Node(&**value)
+    }
+}
+
+impl<'a> From<&'a String> for DynamicNode<'a> {
+    fn from(value: &'a String) -> Self {
+        DynamicNode::Text(&value[..])
+    }
 }
 
 /// Because some elements need to have multiple types of elements
@@ -91,7 +106,7 @@ where
 
 impl NodeChild for String {
     fn get_node(&self) -> DynamicNode {
-        DynamicNode::Str(&self[..])
+        DynamicNode::Text(&self[..])
     }
 }
 

@@ -21,7 +21,7 @@ macro_rules! multiple_children {
             fn get_node(&self) -> $crate::dom::element::DynamicNode {
                 match self {
                     $(
-                        $name::$var_name(elt) => $crate::dom::element::DynamicNode::Node(&**elt)
+                        $name::$var_name(elt) => elt.into()
                     ),+
                 }
             }

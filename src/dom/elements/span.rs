@@ -1,5 +1,5 @@
 use crate::dom::element::Element;
-use crate::dom::AttrStyle;
+use crate::dom::{AttrStyle, Button, Node, View};
 use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 
 /// Corresponds to <span>. This element is typically used for inline
@@ -15,8 +15,17 @@ element_attributes! {
     }
 }
 
+multiple_children! {
+    enum SpanChild {
+        Text(String),
+        Button(Node<Button>),
+        View(Node<View>),
+        Span(Node<Span>),
+    }
+}
+
 impl Element for Span {
-    type Child = String;
+    type Child = SpanChild;
     type Handlers = ();
     type States = ();
 

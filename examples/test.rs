@@ -28,6 +28,13 @@ const VIEW2_STYLE: Style = define_style! {
     height: 150 px,
 };
 
+const SQUARE_STYLE: Style = define_style! {
+    background_color: rgb(0, 0, 0),
+    display: block,
+    width: 10 px,
+    height: 10 px,
+};
+
 #[topo::nested]
 fn foo() -> Vec<Node<Window>> {
     let click_count: Key<u32> = state!(|| 0);
@@ -45,7 +52,7 @@ fn foo() -> Vec<Node<Window>> {
                 </span>
                 <span>
                     "foo bar baz"
-                    " the quick brown fox jumps over the lazy dog"
+                    " the quick brown fox "<span style={H1_STYLE}>"jumps"</span><view style={SQUARE_STYLE}></view>" over the lazy dog"
                 </span>
                 <button on={on_click} style={BUTTON_STYLE}>
                     <span>
