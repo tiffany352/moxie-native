@@ -70,7 +70,6 @@ struct FilledLine {
 impl TextLayoutInfo {
     #[topo::from_env(collection: &EqualRc<FontCollection>)]
     fn new(text: String, size: f32) -> Self {
-        println!("new text layout {}, {}", text, size);
         TextLayoutInfo {
             session: RefCell::new(LayoutSession::create(text, &TextStyle { size }, collection)),
         }
@@ -376,8 +375,6 @@ impl LayoutEngine {
         input: &(BlockValues, Vec<EqualRc<LayoutTreeNode>>),
     ) -> EqualRc<LayoutTreeNode> {
         let (values, children) = input;
-
-        println!("calc_block_layout num_children={}", children.len());
 
         let mut width = 0.0f32;
         let mut height = 0.0f32;
