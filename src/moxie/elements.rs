@@ -73,6 +73,18 @@ where
     }
 }
 
+impl<Parent, Item> IntoChildren<Parent> for Option<Item>
+where
+    Parent:Element,
+    Parent::Child: From<Item> {
+    type Item = Item;
+    type IntoIter = std::option::IntoIter<Item>;
+
+    fn into_children(self) -> Self::IntoIter {
+        self.into_iter()
+    }
+}
+
 impl<Parent> IntoChildren<Parent> for String
 where
     Parent: Element,
