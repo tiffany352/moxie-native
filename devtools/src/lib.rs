@@ -53,7 +53,9 @@ fn node_view(node: &dyn AnyNodeData) -> Node<View> {
         <view style={FAKE_BORDER_STYLE}>
             <view style={NODE_STYLE}>
                 <span>
-                    {% "<{}>", node.name()}
+                    {% "<{}", node.name()}
+                    {node.style().map(|style| format!(" style={}", style.name()))}
+                    ">"
                 </span>
                 <view style={CHILD_STYLE}>
                     {node.children().map(|child| match child {
