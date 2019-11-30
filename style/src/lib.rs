@@ -512,7 +512,6 @@ impl Parse for StyleList {
         while !input.is_empty() {
             styles.push(input.parse()?);
         }
-        println!("parsed {} styles", styles.len());
         Ok(StyleList { styles })
     }
 }
