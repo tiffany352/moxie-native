@@ -2,38 +2,40 @@
 
 use moxie_native::prelude::*;
 
-const CONTAINER_STYLE: Style = define_style! {
-    padding: 10 px,
-};
+define_style! {
+    static CONTAINER_STYLE = {
+        padding: 10 px,
+    };
 
-const H1_STYLE: Style = define_style! {
-    text_size: 20 px,
-};
+    static H1_STYLE = {
+        text_size: 20 px,
+    };
 
-const BUTTON_STYLE: Style = define_style! {
-    background_color: rgb(238, 238, 238),
-};
+    static BUTTON_STYLE = {
+        background_color: rgb(238, 238, 238),
+    };
 
-const VIEW1_STYLE: Style = define_style! {
-    background_color: rgb(255, 0, 0),
-    display: block,
-    width: 200 px,
-    height: 200 px,
-};
+    static VIEW1_STYLE = {
+        background_color: rgb(255, 0, 0),
+        display: block,
+        width: 200 px,
+        height: 200 px,
+    };
 
-const VIEW2_STYLE: Style = define_style! {
-    background_color: rgb(0, 255, 0),
-    display: block,
-    width: 250 px,
-    height: 150 px,
-};
+    static VIEW2_STYLE = {
+        background_color: rgb(0, 255, 0),
+        display: block,
+        width: 250 px,
+        height: 150 px,
+    };
 
-const SQUARE_STYLE: Style = define_style! {
-    background_color: rgb(0, 0, 0),
-    display: block,
-    width: 10 px,
-    height: 10 px,
-};
+    static SQUARE_STYLE = {
+        background_color: rgb(0, 0, 0),
+        display: block,
+        width: 10 px,
+        height: 10 px,
+    };
+}
 
 #[topo::nested]
 fn foo() -> Node<App> {

@@ -183,10 +183,23 @@ pub struct SubStyle {
 pub struct StyleData {
     pub attributes: CommonAttributes,
     pub sub_styles: &'static [SubStyle],
+    pub name: &'static str,
+    pub file: &'static str,
+    pub line: u32,
 }
 
 #[derive(Copy, Clone)]
 pub struct Style(pub &'static StyleData);
+
+impl Style {
+    pub fn name(&self) -> &'static str {
+        self.0.name
+    }
+
+    pub fn file(&self) -> (&'static str, u32) {
+        (self.0.file, self.0.line)
+    }
+}
 
 impl PartialEq for Style {
     fn eq(&self, other: &Style) -> bool {

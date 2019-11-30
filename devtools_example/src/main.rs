@@ -2,22 +2,24 @@
 use moxie_native::prelude::*;
 use moxie_native_devtools::*;
 
-// Define a style for an element. Uses a proc macro for css-like syntax.
-const MY_STYLE: Style = define_style! {
-    // Easily specify units on measurements, and do simple calculations with them.
-    text_size: 25 px + 1 vh,
-    padding: 10 px,
-    // Enums
-    direction: horizontal,
-    // Colors allow rgb and rgba syntax.
-    background_color: rgb(66, 135, 245),
-    text_color: rgb(255, 255, 255),
+define_style! {
+    // Define a style for an element. Uses a proc macro for css-like syntax.
+    static MY_STYLE = {
+        // Easily specify units on measurements, and do simple calculations with them.
+        text_size: 25 px + 1 vh,
+        padding: 10 px,
+        // Enums
+        direction: horizontal,
+        // Colors allow rgb and rgba syntax.
+        background_color: rgb(66, 135, 245),
+        text_color: rgb(255, 255, 255),
 
-    // Selectors can be used to add conditional styling.
-    if state: hover {
-        background_color: rgb(112, 167, 255),
-    }
-};
+        // Selectors can be used to add conditional styling.
+        if state: hover {
+            background_color: rgb(112, 167, 255),
+        }
+    };
+}
 
 // This attribute is used to introduce a new nesting context, which lets the
 // runtime efficiently keep track of object states over multiple renders.

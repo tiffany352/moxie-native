@@ -2,26 +2,28 @@
 
 use moxie_native::prelude::*;
 
-const ROW_STYLE: Style = define_style! {
-    width: 100 vw,
-    height: 20 vh,
-    direction: horizontal,
-    background_color: rgba(0, 0, 0, 0),
-    text_size: 25 px,
-    padding: 4 px,
-};
+define_style! {
+    static ROW_STYLE = {
+        width: 100 vw,
+        height: 20 vh,
+        direction: horizontal,
+        background_color: rgba(0, 0, 0, 0),
+        text_size: 25 px,
+        padding: 4 px,
+    };
 
-const BUTTON_STYLE: Style = define_style! {
-    width: 25 vw - 8 px,
-    height: 20 vh - 8 px,
-    background_color: rgb(200, 200, 200),
-    padding: 10 px,
-    margin: 4 px,
+    static BUTTON_STYLE = {
+        width: 25 vw - 8 px,
+        height: 20 vh - 8 px,
+        background_color: rgb(200, 200, 200),
+        padding: 10 px,
+        margin: 4 px,
 
-    if state: hover {
-        background_color: rgb(238, 238, 238),
-    }
-};
+        if state: hover {
+            background_color: rgb(238, 238, 238),
+        }
+    };
+}
 
 #[derive(Clone, PartialEq, Copy)]
 enum Message {

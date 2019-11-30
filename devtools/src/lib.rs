@@ -7,29 +7,31 @@ use moxie_native::dom::{
 };
 use moxie_native::prelude::*;
 
-const VIEW: Style = define_style! {
-    background_color: rgba(0, 0, 0, 0),
-};
+define_style! {
+    static VIEW = {
+        background_color: rgba(0, 0, 0, 0),
+    };
 
-const CHILD_STYLE: Style = define_style! {
-    padding: 10 px,
-    background_color: rgb(255, 255, 255),
-};
+    static CHILD_STYLE = {
+        padding: 10 px,
+        background_color: rgb(255, 255, 255),
+    };
 
-const FAKE_BORDER_STYLE: Style = define_style! {
-    padding: 2 px,
-    background_color: rgb(238, 238, 238),
-};
+    static FAKE_BORDER_STYLE = {
+        padding: 2 px,
+        background_color: rgb(238, 238, 238),
+    };
 
-const NODE_STYLE: Style = define_style! {
-    padding: 4 px,
-    background_color: rgb(255, 255, 255),
-};
+    static NODE_STYLE = {
+        padding: 4 px,
+        background_color: rgb(255, 255, 255),
+    };
 
-// Needs to be static to maintain object identity
-static SENTINEL_STYLE: Style = define_style! {
-    text_color: rgb(0, 0, 0),
-};
+    // Needs to be static to maintain object identity
+    static SENTINEL_STYLE = {
+        text_color: rgb(0, 0, 0),
+    };
+}
 
 #[topo::nested]
 fn node_view(node: &dyn AnyNodeData) -> Node<View> {

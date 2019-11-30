@@ -7,13 +7,16 @@ use {
     syn::punctuated::Punctuated,
     syn::spanned::Spanned,
     syn::token,
-    syn::{braced, parenthesized, parse_macro_input, Ident, Lit, LitInt, Token},
+    syn::{
+        braced, parenthesized, parse_macro_input, Attribute as SynAttribute, Ident, Lit, LitInt,
+        Token, Visibility,
+    },
 };
 
-#[proc_macro_hack::proc_macro_hack]
+#[proc_macro]
 pub fn define_style(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     proc_macro_error::entry_point(|| {
-        let item = parse_macro_input!(input as Style);
+        let item = parse_macro_input!(input as StyleList);
         quote!(#item).into()
     })
 }
@@ -430,28 +433,42 @@ impl ToTokens for SubStyle {
 }
 
 struct Style {
+    outer: Vec<SynAttribute>,
+    visibility: Visibility,
+    name: Ident,
     attributes: Vec<Attribute>,
     sub_styles: Vec<SubStyle>,
 }
 
 impl Parse for Style {
     fn parse(input: ParseStream) -> Result<Self> {
+        let outer = input.call(SynAttribute::parse_outer)?;
+        let visibility = input.parse::<Visibility>()?;
+        input.parse::<Token![static]>()?;
+        let name = input.parse::<Ident>()?;
+        input.parse::<Token![=]>()?;
+        let content;
+        braced!(content in input);
         let mut attributes = vec![];
         loop {
-            if input.peek(token::If) || input.is_empty() {
+            if content.peek(token::If) || content.is_empty() {
                 break;
             }
-            attributes.push(input.parse()?);
-            if !input.peek(token::Comma) {
+            attributes.push(content.parse()?);
+            if !content.peek(token::Comma) {
                 break;
             }
-            input.parse::<Token![,]>()?;
+            content.parse::<Token![,]>()?;
         }
         let mut sub_styles = vec![];
-        while input.peek(token::If) {
-            sub_styles.push(input.parse()?);
+        while content.peek(token::If) {
+            sub_styles.push(content.parse()?);
         }
+        input.parse::<Token![;]>()?;
         Ok(Style {
+            outer,
+            visibility,
+            name,
             attributes,
             sub_styles,
         })
@@ -462,17 +479,49 @@ impl ToTokens for Style {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let attributes = self.attributes.iter().collect::<Vec<_>>();
         let sub_styles = &self.sub_styles;
+        let name = &self.name;
+        let outer = &self.outer;
+        let visibility = &self.visibility;
         tokens.extend(quote!(
-            ::moxie_native::style::Style(&::moxie_native::style::StyleData {
-                attributes: ::moxie_native::style::CommonAttributes {
-                    #(#attributes),*,
-                    .. ::moxie_native::style::DEFAULT_ATTRIBUTES
-                },
-                sub_styles: &[
-                    #(#sub_styles),*
-                ],
-            }
-        )))
+            #(#outer)*
+            #visibility static #name: ::moxie_native::style::Style = ::moxie_native::style::Style(
+                &::moxie_native::style::StyleData {
+                    name: stringify!(#name),
+                    file: ::std::file!(),
+                    line: ::std::line!(),
+                    attributes: ::moxie_native::style::CommonAttributes {
+                        #(#attributes),*,
+                        .. ::moxie_native::style::DEFAULT_ATTRIBUTES
+                    },
+                    sub_styles: &[
+                        #(#sub_styles),*
+                    ],
+                }
+            );
+        ));
+    }
+}
+
+struct StyleList {
+    styles: Vec<Style>,
+}
+
+impl Parse for StyleList {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut styles = vec![];
+        while !input.is_empty() {
+            styles.push(input.parse()?);
+        }
+        println!("parsed {} styles", styles.len());
+        Ok(StyleList { styles })
+    }
+}
+
+impl ToTokens for StyleList {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for style in &self.styles {
+            tokens.extend(quote!(#style));
+        }
     }
 }
 
