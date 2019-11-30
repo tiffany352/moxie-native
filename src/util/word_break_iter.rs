@@ -38,8 +38,12 @@ impl<'a> Iterator for WordBreakIterator<'a> {
                 seen_non_ws = true;
             }
 
-            if result.is_none() && !seen_non_ws {
-                return None;
+            if result.is_none() {
+                if first_index.unwrap() < index {
+                    return Some(&self.string[first_index.unwrap()..index]);
+                } else {
+                    return None;
+                }
             }
 
             self.iter.next();
@@ -75,7 +79,7 @@ mod test {
     #[test]
     fn trailing_ws() {
         let string = "foo  ";
-        let expect = vec!["foo"];
+        let expect = vec!["foo", "  "];
         let result = WordBreakIterator::new(string).collect::<Vec<_>>();
         println!("{:#?}", result);
         assert!(expect.len() == result.len());

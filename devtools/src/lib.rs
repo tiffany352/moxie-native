@@ -31,6 +31,15 @@ define_style! {
     static SENTINEL_STYLE = {
         text_color: rgb(0, 0, 0),
     };
+
+    static NAME_STYLE = {
+        text_color: rgb(39, 111, 156),
+    };
+
+    static CONTENT_STYLE = {
+        background_color: rgba(0, 0, 0, 0),
+        text_color: rgb(10, 145, 50),
+    };
 }
 
 #[topo::nested]
@@ -53,7 +62,10 @@ fn node_view(node: &dyn AnyNodeData) -> Node<View> {
         <view style={FAKE_BORDER_STYLE}>
             <view style={NODE_STYLE}>
                 <span>
-                    {% "<{}", node.name()}
+                    "<"
+                    <span style={NAME_STYLE}>
+                        {% "{}", node.name()}
+                    </span>
                     {node.style().map(|style| format!(" style={}", style.name()))}
                     ">"
                 </span>
@@ -65,7 +77,7 @@ fn node_view(node: &dyn AnyNodeData) -> Node<View> {
                             </view>
                         },
                         DynamicNode::Text(text) => mox! {
-                            <view style={VIEW}>
+                            <view style={CONTENT_STYLE}>
                                 <span>{% "{:?}", text}</span>
                             </view>
                         }
