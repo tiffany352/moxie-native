@@ -18,6 +18,8 @@ impl Element for App {
     type Handlers = ();
     type States = ();
 
+    const ELEMENT_NAME: &'static str = "app";
+
     fn style(&self) -> Option<Style> {
         None
     }

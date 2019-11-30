@@ -79,6 +79,7 @@ pub trait AnyNodeData {
     fn style(&self) -> Option<Style>;
     fn has_state(&self, key: &str) -> bool;
     fn type_id(&self) -> TypeId;
+    fn name(&self) -> &'static str;
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
@@ -124,6 +125,10 @@ where
     fn type_id(&self) -> TypeId {
         TypeId::of::<Elt>()
     }
+
+    fn name(&self) -> &'static str {
+        Elt::ELEMENT_NAME
+    }
 }
 
 /// Typed handle to a DOM node.
@@ -166,6 +171,38 @@ where
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let raw: *const NodeData<Elt> = &*self.0;
+        raw.hash(state);
+    }
+}
+
+pub struct AnyNode(Rc<dyn AnyNodeData>);
+
+impl<Elt> From<Node<Elt>> for AnyNode
+where
+    Elt: Element,
+{
+    fn from(node: Node<Elt>) -> Self {
+        AnyNode(node.0)
+    }
+}
+
+impl Deref for AnyNode {
+    type Target = dyn AnyNodeData;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl PartialEq for AnyNode {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Hash for AnyNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let raw: *const dyn AnyNodeData = &*self.0;
         raw.hash(state);
     }
 }

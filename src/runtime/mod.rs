@@ -1,3 +1,4 @@
+use crate::dom::devtools::DevToolsRegistry;
 use crate::dom::{App, Node};
 use ::moxie::embed::Runtime as MoxieRuntime;
 use std::collections::HashMap;
@@ -22,7 +23,19 @@ impl Runtime {
     /// Create a new runtime based on the application's root component.
     pub fn new(mut root: impl FnMut() -> Node<App> + 'static) -> Runtime {
         Runtime {
-            moxie_runtime: MoxieRuntime::new(Box::new(move || topo::call!({ root() }))),
+            moxie_runtime: MoxieRuntime::new(Box::new(move || {
+                topo::call!(
+                    {
+                        let registry = topo::Env::expect::<DevToolsRegistry>();
+                        let app = root();
+                        registry.update(app.clone().into());
+                        app
+                    },
+                    env! {
+                        DevToolsRegistry => DevToolsRegistry::new(),
+                    }
+                )
+            })),
             windows: HashMap::new(),
             window_ids: vec![],
             proxy: None,

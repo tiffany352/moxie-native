@@ -52,6 +52,8 @@ impl Element for Button {
     type Handlers = ButtonHandlers;
     type States = ButtonStates;
 
+    const ELEMENT_NAME: &'static str = "button";
+
     fn process(
         &self,
         states: Self::States,

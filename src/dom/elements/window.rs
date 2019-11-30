@@ -31,6 +31,8 @@ impl Element for Window {
     type Handlers = ();
     type States = ();
 
+    const ELEMENT_NAME: &'static str = "window";
+
     fn style(&self) -> Option<Style> {
         self.style
     }

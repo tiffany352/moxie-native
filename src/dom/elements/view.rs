@@ -28,6 +28,8 @@ impl Element for View {
     type Handlers = ();
     type States = ();
 
+    const ELEMENT_NAME: &'static str = "view";
+
     fn create_computed_values(&self) -> ComputedValues {
         ComputedValues {
             background_color: Color::new(50, 180, 200, 255),

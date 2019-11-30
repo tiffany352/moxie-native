@@ -29,6 +29,8 @@ impl Element for Span {
     type Handlers = ();
     type States = ();
 
+    const ELEMENT_NAME: &'static str = "span";
+
     fn create_computed_values(&self) -> ComputedValues {
         ComputedValues {
             display: DisplayType::Inline(InlineValues {}),

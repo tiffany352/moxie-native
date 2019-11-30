@@ -10,6 +10,8 @@ pub trait Element: Default + Clone + PartialEq + 'static {
     type Handlers: HandlerList;
     type States: ElementStates + Clone + Copy + Default + PartialEq;
 
+    const ELEMENT_NAME: &'static str;
+
     /// Creates default style values
     fn create_computed_values(&self) -> ComputedValues {
         Default::default()

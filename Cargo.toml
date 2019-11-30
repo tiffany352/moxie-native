@@ -39,3 +39,9 @@ path = "./style"
 
 [patch.'https://github.com/anp/moxie.git']
 mox = { path = "./mox" }
+
+[workspace]
+members = [
+    "devtools",
+    "devtools_example"
+]

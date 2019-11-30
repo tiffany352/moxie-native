@@ -3,6 +3,7 @@
 //! represent the UI.
 
 pub mod attributes;
+pub mod devtools;
 pub mod element;
 pub mod elements;
 pub mod events;
