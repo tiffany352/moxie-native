@@ -1,9 +1,9 @@
 use super::{
     block,
     text::{TextLayoutInfo, TextState},
-    LayoutChild, LayoutText, LayoutTreeNode, LogicalSideOffsets, LogicalSize,
+    LayoutChild, LayoutText, LayoutTreeNode, LogicalSideOffsets, LogicalSize, RenderData,
 };
-use crate::dom::{element::DynamicNode, node::NodeRef};
+use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{ComputedValues, DisplayType};
 use crate::util::equal_rc::EqualRc;
 use euclid::{point2, size2};
@@ -11,13 +11,10 @@ use moxie::*;
 
 #[derive(PartialEq)]
 enum InlineLayoutItem {
-    Block {
-        index: usize,
-        layout: EqualRc<LayoutTreeNode>,
-    },
+    Block(EqualRc<LayoutTreeNode>),
     Text {
-        index: usize,
         text: EqualRc<TextLayoutInfo>,
+        parent: AnyNode,
     },
 }
 
@@ -32,13 +29,11 @@ impl LayoutState {
         for item in line.line_items {
             let LineItem {
                 ascender,
-                index,
                 x,
                 layout,
             } = item;
             self.children.push(LayoutChild {
                 position: point2(x, self.height + line.ascender - ascender),
-                index,
                 layout,
             });
         }
@@ -51,7 +46,6 @@ impl LayoutState {
 // Turns into LayoutChild
 struct LineItem {
     ascender: f32,
-    index: usize,
     x: f32,
     layout: EqualRc<LayoutTreeNode>,
 }
@@ -75,7 +69,7 @@ impl LineState {
         }
     }
 
-    fn insert_block_item(&mut self, index: usize, layout: EqualRc<LayoutTreeNode>) -> bool {
+    fn insert_block_item(&mut self, layout: EqualRc<LayoutTreeNode>) -> bool {
         let size = layout.size;
         if self.x + size.width > self.max_width {
             return false;
@@ -83,7 +77,6 @@ impl LineState {
         self.line_items.push(LineItem {
             x: self.x,
             ascender: size.height,
-            index,
             layout,
         });
         self.x += size.width;
@@ -91,17 +84,19 @@ impl LineState {
         true
     }
 
-    fn insert_text_item(&mut self, index: usize, state: &mut TextState) -> bool {
+    fn insert_text_item(&mut self, parent: AnyNode, state: &mut TextState) -> bool {
         if let Some(line) = state.fill_line(self.max_width - self.x, self.line_items.is_empty()) {
             self.line_items.push(LineItem {
-                index,
                 ascender: line.ascender,
                 x: self.x,
                 layout: EqualRc::new(LayoutTreeNode {
-                    render_text: Some(LayoutText {
-                        fragments: line.fragments,
-                        size: line.text_size,
-                    }),
+                    render: RenderData::Text {
+                        text: LayoutText {
+                            fragments: line.fragments,
+                            size: line.text_size,
+                        },
+                        parent,
+                    },
                     size: size2(line.width, line.height),
                     margin: LogicalSideOffsets::default(),
                     children: vec![],
@@ -125,7 +120,7 @@ fn collect_inline_items(
     max_size: LogicalSize,
     items: &mut Vec<InlineLayoutItem>,
 ) {
-    for (index, child) in node.children().enumerate() {
+    for child in node.children() {
         topo::call! {
             {
                 match child {
@@ -134,7 +129,7 @@ fn collect_inline_items(
                         match values.display {
                             DisplayType::Block(ref block) => {
                                 let layout = block::layout_block(node, &values, block, max_size).into();
-                                items.push(InlineLayoutItem::Block { index, layout });
+                                items.push(InlineLayoutItem::Block(layout));
                             }
                             DisplayType::Inline(_) => {
                                 collect_inline_items(node, &values, max_size, items);
@@ -148,7 +143,7 @@ fn collect_inline_items(
                                 *size,
                             ))
                         }).into(),
-                        index,
+                        parent: node.to_owned(),
                     })
                 }
             }
@@ -156,7 +151,11 @@ fn collect_inline_items(
     }
 }
 
-fn calc_inline_layout(max_width: f32, items: &[InlineLayoutItem]) -> EqualRc<LayoutTreeNode> {
+fn calc_inline_layout(
+    node: AnyNode,
+    max_width: f32,
+    items: &[InlineLayoutItem],
+) -> EqualRc<LayoutTreeNode> {
     let mut state = LayoutState {
         height: 0.0f32,
         longest_line: 0.0f32,
@@ -167,17 +166,17 @@ fn calc_inline_layout(max_width: f32, items: &[InlineLayoutItem]) -> EqualRc<Lay
 
     for item in items {
         match item {
-            InlineLayoutItem::Block { index, layout } => {
-                if !line.insert_block_item(*index, layout.clone().into()) {
+            InlineLayoutItem::Block(layout) => {
+                if !line.insert_block_item(layout.clone().into()) {
                     let old_line = std::mem::replace(&mut line, LineState::new(max_width));
                     state.add_line(old_line);
-                    line.insert_block_item(*index, layout.clone().into());
+                    line.insert_block_item(layout.clone().into());
                 }
             }
-            InlineLayoutItem::Text { index, text } => {
+            InlineLayoutItem::Text { text, parent } => {
                 let mut text_state = TextState::new(&**text);
                 loop {
-                    line.insert_text_item(*index, &mut text_state);
+                    line.insert_text_item(parent.clone(), &mut text_state);
                     if text_state.finished() {
                         break;
                     }
@@ -192,7 +191,7 @@ fn calc_inline_layout(max_width: f32, items: &[InlineLayoutItem]) -> EqualRc<Lay
     let children = state.children;
 
     EqualRc::new(LayoutTreeNode {
-        render_text: None,
+        render: RenderData::Node(node),
         margin: LogicalSideOffsets::default(),
         size,
         children,
@@ -208,28 +207,32 @@ pub fn layout_inline(
 
     collect_inline_items(node, values, max_size, &mut items);
 
-    memo!((max_size.width, items), |(max_width, items)| {
-        calc_inline_layout(*max_width, &items[..])
+    memo!((node.to_owned(), max_size.width, items), |(
+        node,
+        max_width,
+        items,
+    )| {
+        calc_inline_layout(node.clone(), *max_width, &items[..])
     })
 }
 
 pub fn layout_text(
-    index: usize,
+    node: AnyNode,
     text: &str,
     max_width: f32,
     values: &ComputedValues,
 ) -> EqualRc<LayoutTreeNode> {
     let size = values.text_size;
-    memo!((max_width, text.to_owned(), index, size), |(
+    memo!((max_width, text.to_owned(), node, size), |(
         max_width,
         text,
-        index,
+        node,
         size,
     )| {
         let item = InlineLayoutItem::Text {
-            index: *index,
             text: EqualRc::new(TextLayoutInfo::new(text.to_owned(), size.get())),
+            parent: node.clone(),
         };
-        calc_inline_layout(*max_width, &[item])
+        calc_inline_layout(node.clone(), *max_width, &[item])
     })
 }

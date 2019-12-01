@@ -1,7 +1,7 @@
 use crate::dom::input::InputEvent;
-use crate::dom::{element::DynamicNode, node::NodeRef, Node, Window};
-use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
-use crate::style::{ComputedValues, StyleEngine};
+use crate::dom::{Node, Window};
+use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, RenderData};
+use crate::style::StyleEngine;
 use crate::util::equal_rc::EqualRc;
 use gleam::gl;
 use skribo::FontRef;
@@ -159,98 +159,91 @@ impl Context {
         builder: &mut DisplayListBuilder,
         transaction: &mut Transaction,
         position: Point2D<f32, LogicalPixel>,
-        node: DynamicNode,
         layout: &EqualRc<LayoutTreeNode>,
-        parent_values: ComputedValues,
     ) {
         let rect = Rect::new(position, layout.size) * Scale::new(1.0);
 
         let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
-        let values = if let DynamicNode::Node(node) = node {
-            node.computed_values().get()
-        } else {
-            None
-        };
+        match layout.render {
+            RenderData::Node(ref node) => {
+                let values = node.computed_values().get().unwrap();
 
-        if let Some(values) = values {
-            if values.background_color.alpha > 0 {
-                let item_props = if values.border_radius.get() > 0.0 {
-                    let region = ComplexClipRegion::new(
-                        rect,
-                        BorderRadius::uniform(values.border_radius.get()),
-                        ClipMode::Clip,
+                if values.background_color.alpha > 0 {
+                    let item_props = if values.border_radius.get() > 0.0 {
+                        let region = ComplexClipRegion::new(
+                            rect,
+                            BorderRadius::uniform(values.border_radius.get()),
+                            ClipMode::Clip,
+                        );
+                        let clip = builder.define_clip(
+                            &SpaceAndClipInfo::root_scroll(pipeline_id),
+                            rect,
+                            vec![region],
+                            None,
+                        );
+                        CommonItemProperties::new(
+                            rect,
+                            SpaceAndClipInfo {
+                                spatial_id: SpatialId::root_scroll_node(pipeline_id),
+                                clip_id: clip,
+                            },
+                        )
+                    } else {
+                        CommonItemProperties::new(rect, space_and_clip)
+                    };
+                    builder.push_rect(&item_props, values.background_color.into());
+                }
+
+                for layout in &layout.children {
+                    self.render_child(
+                        pipeline_id,
+                        builder,
+                        transaction,
+                        position + layout.position.to_vector(),
+                        &layout.layout,
                     );
-                    let clip = builder.define_clip(
-                        &SpaceAndClipInfo::root_scroll(pipeline_id),
+                }
+            }
+            RenderData::Text {
+                text:
+                    LayoutText {
+                        ref fragments,
+                        size,
+                    },
+                ref parent,
+            } => {
+                let values = parent.computed_values().get().unwrap();
+                let color = values.text_color;
+                builder.push_simple_stacking_context(
+                    point2(0.0, 0.0),
+                    space_and_clip.spatial_id,
+                    PrimitiveFlags::IS_BACKFACE_VISIBLE,
+                );
+                for fragment in fragments {
+                    let glyphs = fragment
+                        .glyphs
+                        .iter()
+                        .map(|glyph| {
+                            let pos = position + glyph.offset.to_vector();
+                            GlyphInstance {
+                                index: glyph.index,
+                                point: pos * Scale::new(1.0),
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    let font_key = self.get_font(&fragment.font, transaction);
+                    let key = self.get_font_instance(font_key, size as usize, transaction);
+                    builder.push_text(
+                        &CommonItemProperties::new(rect, space_and_clip),
                         rect,
-                        vec![region],
+                        &glyphs[..],
+                        key,
+                        color.into(),
                         None,
                     );
-                    CommonItemProperties::new(
-                        rect,
-                        SpaceAndClipInfo {
-                            spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                            clip_id: clip,
-                        },
-                    )
-                } else {
-                    CommonItemProperties::new(rect, space_and_clip)
-                };
-                builder.push_rect(&item_props, values.background_color.into());
-            }
-        }
-
-        if let Some(LayoutText {
-            ref fragments,
-            size,
-        }) = layout.render_text
-        {
-            let values = values.as_ref().unwrap_or(&parent_values);
-            let color = values.text_color;
-            builder.push_simple_stacking_context(
-                point2(0.0, 0.0),
-                space_and_clip.spatial_id,
-                PrimitiveFlags::IS_BACKFACE_VISIBLE,
-            );
-            for fragment in fragments {
-                let glyphs = fragment
-                    .glyphs
-                    .iter()
-                    .map(|glyph| {
-                        let pos = position + glyph.offset.to_vector();
-                        GlyphInstance {
-                            index: glyph.index,
-                            point: pos * Scale::new(1.0),
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                let font_key = self.get_font(&fragment.font, transaction);
-                let key = self.get_font_instance(font_key, size as usize, transaction);
-                builder.push_text(
-                    &CommonItemProperties::new(rect, space_and_clip),
-                    rect,
-                    &glyphs[..],
-                    key,
-                    color.into(),
-                    None,
-                );
-            }
-            builder.pop_stacking_context();
-        }
-
-        if let DynamicNode::Node(node) = node {
-            for layout in &layout.children {
-                let child = node.get_child(layout.index).expect("child to exist");
-                self.render_child(
-                    pipeline_id,
-                    builder,
-                    transaction,
-                    position + layout.position.to_vector(),
-                    child,
-                    &layout.layout,
-                    node.computed_values().get().unwrap(),
-                );
+                }
+                builder.pop_stacking_context();
             }
         }
     }
@@ -273,15 +266,12 @@ impl Context {
             .layout(self.window.clone(), content_size * Scale::new(1.0));
 
         for layout in &root_layout.children {
-            let child = self.window.children()[layout.index].clone();
             self.render_child(
                 pipeline_id,
                 &mut builder,
                 &mut transaction,
                 layout.position,
-                DynamicNode::Node((&child).into()),
                 &layout.layout,
-                self.window.computed_values().get().unwrap(),
             );
         }
 
@@ -304,33 +294,30 @@ impl Context {
         &self,
         event: &InputEvent,
         position: Point2D<f32, LogicalPixel>,
-        node: NodeRef,
         layout: &EqualRc<LayoutTreeNode>,
     ) -> bool {
         let rect = Rect::new(position, layout.size);
 
-        for layout in &layout.children {
-            let child = node.get_child(layout.index).expect("child to exist");
-            if let DynamicNode::Node(node) = child {
+        if let RenderData::Node(ref node) = layout.render {
+            for layout in &layout.children {
                 if self.process_child(
                     event,
                     position + layout.position.to_vector(),
-                    node,
                     &layout.layout,
                 ) {
                     return true;
                 }
             }
-        }
 
-        let do_process = match event.get_position() {
-            Some((x, y)) => rect.contains(point2(x, y)),
-            None => true,
-        };
+            let do_process = match event.get_position() {
+                Some((x, y)) => rect.contains(point2(x, y)),
+                None => true,
+            };
 
-        if do_process {
-            if node.process(event) {
-                return true;
+            if do_process {
+                if node.process(event) {
+                    return true;
+                }
             }
         }
 
@@ -350,8 +337,7 @@ impl Context {
             .layout(self.window.clone(), content_size * Scale::new(1.0));
 
         for layout in &root_layout.children {
-            let child = &self.window.children()[layout.index];
-            if self.process_child(event, layout.position, child.into(), &layout.layout) {
+            if self.process_child(event, layout.position, &layout.layout) {
                 return true;
             }
         }

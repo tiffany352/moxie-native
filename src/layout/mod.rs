@@ -1,6 +1,7 @@
 //! This module handles creating the layout tree, which includes
 //! arranging elements and performing text layout.
 
+use crate::dom::node::AnyNode;
 use crate::dom::{Node, Window};
 use crate::style::DisplayType;
 use crate::util::equal_rc::EqualRc;
@@ -26,8 +27,6 @@ pub type LogicalSideOffsets = SideOffsets2D<f32, LogicalPixel>;
 /// of the child elements, since elements are positioned relative to
 /// their parents, and the position is assigned by the parent.
 pub struct LayoutChild {
-    /// Child index of the DOM node this child is associated with.
-    pub index: usize,
     pub position: LogicalPoint,
     pub layout: EqualRc<LayoutTreeNode>,
 }
@@ -49,12 +48,17 @@ pub struct LayoutText {
     pub size: f32,
 }
 
+pub enum RenderData {
+    Text { text: LayoutText, parent: AnyNode },
+    Node(AnyNode),
+}
+
 /// One node in the layout tree, which corresponds n:1 with DOM nodes.
 pub struct LayoutTreeNode {
     /// The computed size of the node.
     pub size: LogicalSize,
     pub margin: LogicalSideOffsets,
-    pub render_text: Option<LayoutText>,
+    pub render: RenderData,
     pub children: Vec<LayoutChild>,
 }
 

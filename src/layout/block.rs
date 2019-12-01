@@ -1,6 +1,5 @@
-use super::inline;
-use super::{LayoutChild, LayoutTreeNode, LogicalSize};
-use crate::dom::{element::DynamicNode, node::NodeRef};
+use super::{inline, LayoutChild, LayoutTreeNode, LogicalSize, RenderData};
+use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
 use euclid::{point2, size2};
@@ -18,20 +17,19 @@ fn calc_max_size(values: &BlockValues, parent_size: LogicalSize) -> LogicalSize 
 }
 
 fn calc_block_layout(
-    input: &(BlockValues, Vec<EqualRc<LayoutTreeNode>>),
+    input: &(BlockValues, Vec<EqualRc<LayoutTreeNode>>, AnyNode),
 ) -> EqualRc<LayoutTreeNode> {
-    let (values, children) = input;
+    let (values, children, node) = input;
 
     let mut width = 0.0f32;
     let mut height = 0.0f32;
     let mut child_positions = vec![];
-    for (index, child) in children.iter().enumerate() {
+    for child in children {
         let child = child.clone();
         let size = child.size + size2(child.margin.horizontal(), child.margin.vertical());
         if values.direction == Direction::Vertical {
             width = width.max(size.width);
             child_positions.push(LayoutChild {
-                index,
                 position: point2(values.padding.left, height + values.padding.top),
                 layout: child,
             });
@@ -39,7 +37,6 @@ fn calc_block_layout(
         } else {
             height = height.max(size.height);
             child_positions.push(LayoutChild {
-                index,
                 position: point2(width + values.padding.left, values.padding.top),
                 layout: child,
             });
@@ -63,7 +60,7 @@ fn calc_block_layout(
         size,
         margin,
         children: child_positions,
-        render_text: None,
+        render: RenderData::Node(node.clone()),
     })
 }
 
@@ -92,12 +89,15 @@ pub fn layout_block(
                         }
                     }
                     DynamicNode::Text(text) => {
-                        children.push(inline::layout_text(0, text, max_size.width, values));
+                        children.push(inline::layout_text(node.to_owned(), text, max_size.width, values));
                     }
                 }
             }
         }
     }
 
-    moxie::memo!((block_values.clone(), children), calc_block_layout)
+    moxie::memo!(
+        (block_values.clone(), children, node.to_owned()),
+        calc_block_layout
+    )
 }

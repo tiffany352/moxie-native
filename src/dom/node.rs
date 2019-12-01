@@ -229,6 +229,21 @@ impl<'a> Deref for NodeRef<'a> {
     }
 }
 
+impl<'a> PartialEq for NodeRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(
+            self.0.node_data() as *const dyn AnyNodeData,
+            other.0.node_data() as *const dyn AnyNodeData,
+        )
+    }
+}
+
+impl<'a> NodeRef<'a> {
+    pub fn to_owned(&self) -> AnyNode {
+        self.0.to_owned()
+    }
+}
+
 #[derive(Clone)]
 pub struct AnyNode(Rc<dyn AnyNodeData>);
 
