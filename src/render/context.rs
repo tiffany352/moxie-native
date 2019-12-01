@@ -1,6 +1,8 @@
 use crate::dom::input::InputEvent;
 use crate::dom::{Node, Window};
-use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, RenderData};
+use crate::layout::{
+    LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalSideOffsets, RenderData,
+};
 use crate::style::StyleEngine;
 use crate::util::equal_rc::EqualRc;
 use gleam::gl;
@@ -10,10 +12,11 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use webrender::{
     api::{
-        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutPixel, BorderRadius,
-        ClipMode, ColorF, CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId,
-        Epoch, FontInstanceKey, FontKey, GlyphInstance, PipelineId, PrimitiveFlags, RenderApi,
-        RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
+        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutPixel,
+        units::LayoutSideOffsets, BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipMode,
+        ColorF, CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
+        FontInstanceKey, FontKey, GlyphInstance, NormalBorder, PipelineId, PrimitiveFlags,
+        RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
     euclid::{point2, size2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
@@ -59,6 +62,10 @@ pub struct Context {
     dpi_scale: f32,
     fonts: HashMap<String, FontKey>,
     font_instances: HashMap<(FontKey, usize), FontInstanceKey>,
+}
+
+fn convert_offsets(input: LogicalSideOffsets) -> LayoutSideOffsets {
+    LayoutSideOffsets::new(input.top, input.right, input.bottom, input.left)
 }
 
 impl Context {
@@ -169,7 +176,31 @@ impl Context {
             RenderData::Node(ref node) => {
                 let values = node.computed_values().get().unwrap();
 
+                if values.border_color.alpha > 0
+                    && values.border_thickness != LogicalSideOffsets::zero()
+                {
+                    let common = CommonItemProperties::new(rect, space_and_clip);
+                    let side = BorderSide {
+                        style: BorderStyle::Solid,
+                        color: values.border_color.into(),
+                    };
+                    builder.push_border(
+                        &common,
+                        rect,
+                        convert_offsets(values.border_thickness),
+                        BorderDetails::Normal(NormalBorder {
+                            left: side,
+                            right: side,
+                            top: side,
+                            bottom: side,
+                            radius: BorderRadius::uniform(values.border_radius.get()),
+                            do_aa: true,
+                        }),
+                    )
+                }
+
                 if values.background_color.alpha > 0 {
+                    let rect = rect.inner_rect(convert_offsets(values.border_thickness));
                     let item_props = if values.border_radius.get() > 0.0 {
                         let region = ComplexClipRegion::new(
                             rect,

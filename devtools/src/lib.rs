@@ -15,21 +15,18 @@ define_style! {
     static CHILD_STYLE = {
         padding: 10 px auto auto auto,
         background_color: rgb(255, 255, 255),
-    };
-
-    static FAKE_BORDER_STYLE = {
-        padding: 2 px,
-        background_color: rgb(238, 238, 238),
+        border_thickness: 1.0 px auto auto auto,
+        border_color: rgb(210, 210, 210),
     };
 
     static NODE_STYLE = {
-        padding: 4 px,
-        background_color: rgb(255, 255, 255),
+        background_color: rgba(0, 0, 0, 0),
     };
 
     // Needs to be static to maintain object identity
     static SENTINEL_STYLE = {
         text_color: rgb(0, 0, 0),
+        background_color: rgba(0, 0, 0, 0),
     };
 
     static NAME_STYLE = {
@@ -72,34 +69,44 @@ fn node_view(node: NodeRef) -> Node<View> {
     if let Some(style) = node.style() {
         if style == SENTINEL_STYLE {
             return mox! {
-                <view style={FAKE_BORDER_STYLE}>
-                    <view style={NODE_STYLE}>
-                        <describe_node _=("devtools", None, false) />
-                    </view>
+                <view style={NODE_STYLE}>
+                    <describe_node _=("devtools", None, false) />
                 </view>
             };
         }
     }
 
+    let name = node.name();
+    let has_children = node.children().next().is_some();
+
     mox! {
-        <view style={FAKE_BORDER_STYLE}>
-            <view style={NODE_STYLE}>
-                <describe_node _=(node.name(), node.style(), node.children().next().is_some()) />
-                <view style={CHILD_STYLE}>
-                    {node.children().map(|child| match child {
-                        DynamicNode::Node(child) => mox! {
-                            <view style={VIEW}>
-                                <node_view _=(child) />
-                            </view>
-                        },
-                        DynamicNode::Text(text) => mox! {
-                            <view style={CONTENT_STYLE}>
-                                <span>{% "{:?}", text}</span>
-                            </view>
-                        }
-                    }).collect::<Vec<_>>()}
-                </view>
+        <view style={NODE_STYLE}>
+            <describe_node _=(name, node.style(), has_children) />
+            <view style={CHILD_STYLE}>
+                {node.children().map(|child| match child {
+                    DynamicNode::Node(child) => mox! {
+                        <view style={VIEW}>
+                            <node_view _=(child) />
+                        </view>
+                    },
+                    DynamicNode::Text(text) => mox! {
+                        <view style={CONTENT_STYLE}>
+                            <span>{% "{:?}", text}</span>
+                        </view>
+                    }
+                }).collect::<Vec<_>>()}
             </view>
+            {if has_children { Some(mox! {
+                <span>
+                    "</"
+                    <span style={NAME_STYLE}>
+                        {% "{}", name}
+                    </span>
+                    ">"
+                </span>
+            })} else {
+                None
+            }}
         </view>
     }
 }

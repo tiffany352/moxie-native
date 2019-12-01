@@ -40,7 +40,7 @@ fn my_app() -> Node<App> {
     // This acts like JSX in React.
     mox! {
         <app>
-            <window title="Moxie-Native Demo">
+            <window title="Devtools Demo">
                 <view>
                     // Every element has a style attribute which can be used to add a style.
                     <button style={MY_STYLE} on={on_click}>

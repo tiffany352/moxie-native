@@ -393,9 +393,9 @@ enum AttributeType {
 impl AttributeType {
     fn from_name(name: &str) -> AttributeType {
         match name {
-            "padding" | "margin" => AttributeType::SideOffsets,
-            "width" | "height" | "text_size" => AttributeType::Length,
-            "text_color" | "background_color" => AttributeType::Color,
+            "padding" | "margin" | "border_thickness" => AttributeType::SideOffsets,
+            "width" | "height" | "text_size" | "border_radius" => AttributeType::Length,
+            "text_color" | "background_color" | "border_color" => AttributeType::Color,
             "direction" => AttributeType::Enum(Enum {
                 name: "Direction",
                 variants: &[

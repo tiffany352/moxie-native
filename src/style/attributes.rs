@@ -55,6 +55,8 @@ pub struct CommonAttributes {
     pub font_weight: Option<u32>,
     pub background_color: Option<Color>,
     pub border_radius: Option<Value>,
+    pub border_thickness: SideOffsets,
+    pub border_color: Option<Color>,
     pub padding: SideOffsets,
     pub margin: SideOffsets,
     pub width: Option<Value>,
@@ -70,6 +72,13 @@ pub const DEFAULT_ATTRIBUTES: CommonAttributes = CommonAttributes {
     font_weight: None,
     background_color: None,
     border_radius: None,
+    border_thickness: SideOffsets {
+        left: None,
+        right: None,
+        top: None,
+        bottom: None,
+    },
+    border_color: None,
     padding: SideOffsets {
         left: None,
         right: None,
@@ -166,8 +175,23 @@ impl CommonAttributes {
         if let Some(ref border_radius) = self.border_radius {
             values.border_radius = border_radius.resolve(&ctx);
         }
+        if let Some(ref border_thickness) = self.border_thickness.left {
+            values.border_thickness.left = border_thickness.resolve(&ctx).get();
+        }
+        if let Some(ref border_thickness) = self.border_thickness.right {
+            values.border_thickness.right = border_thickness.resolve(&ctx).get();
+        }
+        if let Some(ref border_thickness) = self.border_thickness.top {
+            values.border_thickness.top = border_thickness.resolve(&ctx).get();
+        }
+        if let Some(ref border_thickness) = self.border_thickness.bottom {
+            values.border_thickness.bottom = border_thickness.resolve(&ctx).get();
+        }
         if let Some(text_color) = self.text_color {
             values.text_color = text_color;
+        }
+        if let Some(border_color) = self.border_color {
+            values.border_color = border_color;
         }
         if let Some(background_color) = self.background_color {
             values.background_color = background_color;

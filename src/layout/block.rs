@@ -2,7 +2,7 @@ use super::{inline, LayoutChild, LayoutTreeNode, LogicalSize, RenderData};
 use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
-use euclid::{point2, size2};
+use euclid::{point2, size2, vec2};
 use moxie::*;
 
 fn calc_max_size(values: &BlockValues, parent_size: LogicalSize) -> LogicalSize {
@@ -17,9 +17,20 @@ fn calc_max_size(values: &BlockValues, parent_size: LogicalSize) -> LogicalSize 
 }
 
 fn calc_block_layout(
-    input: &(BlockValues, Vec<EqualRc<LayoutTreeNode>>, AnyNode),
+    input: &(ComputedValues, Vec<EqualRc<LayoutTreeNode>>, AnyNode),
 ) -> EqualRc<LayoutTreeNode> {
     let (values, children, node) = input;
+
+    let block_values = if let DisplayType::Block(block) = values.display {
+        block
+    } else {
+        panic!()
+    };
+
+    let inset = point2(
+        block_values.padding.left + values.border_thickness.left,
+        block_values.padding.top + values.border_thickness.top,
+    );
 
     let mut width = 0.0f32;
     let mut height = 0.0f32;
@@ -27,34 +38,43 @@ fn calc_block_layout(
     for child in children {
         let child = child.clone();
         let size = child.size + size2(child.margin.horizontal(), child.margin.vertical());
-        if values.direction == Direction::Vertical {
+        if block_values.direction == Direction::Vertical {
             width = width.max(size.width);
             child_positions.push(LayoutChild {
-                position: point2(values.padding.left, height + values.padding.top),
+                position: inset + vec2(0.0, height),
                 layout: child,
             });
             height += size.height;
         } else {
             height = height.max(size.height);
             child_positions.push(LayoutChild {
-                position: point2(width + values.padding.left, values.padding.top),
+                position: inset + vec2(width, 0.0),
                 layout: child,
             });
             width += size.width;
         }
     }
 
-    let mut size =
-        size2(width, height) + size2(values.padding.horizontal(), values.padding.vertical());
+    let size = size2(width, height);
+    let padding = size2(
+        block_values.padding.horizontal(),
+        block_values.padding.vertical(),
+    );
+    let border = size2(
+        values.border_thickness.horizontal(),
+        values.border_thickness.vertical(),
+    );
 
-    if let Some(width) = values.width {
+    let mut size = size + padding + border;
+
+    if let Some(width) = block_values.width {
         size.width = width.get();
     }
-    if let Some(height) = values.height {
+    if let Some(height) = block_values.height {
         size.height = height.get();
     }
 
-    let margin = values.margin;
+    let margin = block_values.margin;
 
     EqualRc::new(LayoutTreeNode {
         size,
@@ -97,7 +117,7 @@ pub fn layout_block(
     }
 
     moxie::memo!(
-        (block_values.clone(), children, node.to_owned()),
+        (values.clone(), children, node.to_owned()),
         calc_block_layout
     )
 }

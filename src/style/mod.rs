@@ -59,6 +59,8 @@ pub struct ComputedValues {
     pub text_color: Color,
     pub background_color: Color,
     pub border_radius: LogicalLength,
+    pub border_thickness: LogicalSideOffsets,
+    pub border_color: Color,
 }
 
 impl Default for ComputedValues {
@@ -69,6 +71,8 @@ impl Default for ComputedValues {
             text_color: Color::black(),
             background_color: Color::clear(),
             border_radius: LogicalLength::new(0.0),
+            border_thickness: LogicalSideOffsets::new_all_same(0.0),
+            border_color: Color::clear(),
         }
     }
 }
