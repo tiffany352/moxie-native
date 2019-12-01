@@ -36,10 +36,35 @@ define_style! {
         text_color: rgb(39, 111, 156),
     };
 
+    static ATTR_STYLE = {
+        text_color: rgb(7, 127, 138),
+    };
+
     static CONTENT_STYLE = {
         background_color: rgba(0, 0, 0, 0),
         text_color: rgb(10, 145, 50),
     };
+}
+
+#[topo::nested]
+fn describe_node(name: &str, style: Option<Style>, has_children: bool) -> Node<Span> {
+    mox! {
+        <span>
+            "<"
+            <span style={NAME_STYLE}>
+                {% "{}", name}
+            </span>
+            {style.map(|style| mox! {
+                <span>
+                    <span style={ATTR_STYLE}>" style"</span>
+                    "="
+                    <span style={CONTENT_STYLE}>{% "{}", style.name()}</span>
+                </span>
+            })}
+            {% "{}", if has_children { "" } else { " /" }}
+            ">"
+        </span>
+    }
 }
 
 #[topo::nested]
@@ -49,9 +74,7 @@ fn node_view(node: NodeRef) -> Node<View> {
             return mox! {
                 <view style={FAKE_BORDER_STYLE}>
                     <view style={NODE_STYLE}>
-                        <span>
-                            "<devtools />"
-                        </span>
+                        <describe_node _=("devtools", None, false) />
                     </view>
                 </view>
             };
@@ -61,14 +84,7 @@ fn node_view(node: NodeRef) -> Node<View> {
     mox! {
         <view style={FAKE_BORDER_STYLE}>
             <view style={NODE_STYLE}>
-                <span>
-                    "<"
-                    <span style={NAME_STYLE}>
-                        {% "{}", node.name()}
-                    </span>
-                    {node.style().map(|style| format!(" style={}", style.name()))}
-                    ">"
-                </span>
+                <describe_node _=(node.name(), node.style(), node.children().next().is_some()) />
                 <view style={CHILD_STYLE}>
                     {node.children().map(|child| match child {
                         DynamicNode::Node(child) => mox! {
