@@ -1,5 +1,5 @@
 use crate::dom::input::InputEvent;
-use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
+use crate::dom::{element::DynamicNode, node::NodeRef, Node, Window};
 use crate::layout::{LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel};
 use crate::style::{ComputedValues, StyleEngine};
 use crate::util::equal_rc::EqualRc;
@@ -279,7 +279,7 @@ impl Context {
                 &mut builder,
                 &mut transaction,
                 layout.position,
-                DynamicNode::Node(&*child),
+                DynamicNode::Node((&child).into()),
                 &layout.layout,
                 self.window.computed_values().get().unwrap(),
             );
@@ -304,7 +304,7 @@ impl Context {
         &self,
         event: &InputEvent,
         position: Point2D<f32, LogicalPixel>,
-        node: &dyn AnyNodeData,
+        node: NodeRef,
         layout: &EqualRc<LayoutTreeNode>,
     ) -> bool {
         let rect = Rect::new(position, layout.size);
@@ -351,7 +351,7 @@ impl Context {
 
         for layout in &root_layout.children {
             let child = &self.window.children()[layout.index];
-            if self.process_child(event, layout.position, &**child, &layout.layout) {
+            if self.process_child(event, layout.position, child.into(), &layout.layout) {
                 return true;
             }
         }

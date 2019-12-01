@@ -1,6 +1,6 @@
 use super::inline;
 use super::{LayoutChild, LayoutTreeNode, LogicalSize};
-use crate::dom::{element::DynamicNode, node::AnyNodeData};
+use crate::dom::{element::DynamicNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
 use euclid::{point2, size2};
@@ -68,7 +68,7 @@ fn calc_block_layout(
 }
 
 pub fn layout_block(
-    node: &dyn AnyNodeData,
+    node: NodeRef,
     values: &ComputedValues,
     block_values: &BlockValues,
     parent_max_size: LogicalSize,

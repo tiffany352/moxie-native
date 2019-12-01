@@ -3,7 +3,7 @@
 use moxie_native::dom::{
     devtools::{register_devtools, DevTools},
     element::DynamicNode,
-    node::{AnyNode, AnyNodeData},
+    node::{AnyNode, NodeRef},
 };
 use moxie_native::prelude::*;
 
@@ -43,7 +43,7 @@ define_style! {
 }
 
 #[topo::nested]
-fn node_view(node: &dyn AnyNodeData) -> Node<View> {
+fn node_view(node: NodeRef) -> Node<View> {
     if let Some(style) = node.style() {
         if style == SENTINEL_STYLE {
             return mox! {
@@ -108,7 +108,7 @@ pub fn devtools() -> Node<View> {
     if let Some(ref node) = *root {
         mox! {
             <view style={SENTINEL_STYLE}>
-                <node_view _=(&**node) />
+                <node_view _=(node.into()) />
             </view>
         }
     } else {

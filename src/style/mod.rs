@@ -1,4 +1,4 @@
-use crate::dom::{element::DynamicNode, node::AnyNodeData, Node, Window};
+use crate::dom::{element::DynamicNode, node::NodeRef, Node, Window};
 use crate::layout::{LogicalLength, LogicalSideOffsets, LogicalSize};
 use crate::Color;
 use moxie::embed::Runtime;
@@ -174,7 +174,7 @@ impl Default for ComputedValues {
 }
 
 pub struct SubStyle {
-    pub selector: fn(&dyn AnyNodeData) -> bool,
+    pub selector: fn(NodeRef) -> bool,
     pub attributes: CommonAttributes,
 }
 
@@ -219,7 +219,7 @@ impl StyleEngine {
         }
     }
 
-    fn update_style(node: &dyn AnyNodeData, parent: Option<&ComputedValues>) {
+    fn update_style(node: NodeRef, parent: Option<&ComputedValues>) {
         let mut computed = node.create_computed_values();
 
         if let Some(parent) = parent {
@@ -248,7 +248,7 @@ impl StyleEngine {
 
     #[topo::from_env(node: &Node<Window>)]
     fn run_styling() {
-        Self::update_style(&**node, None);
+        Self::update_style(node.into(), None);
     }
 
     /// Update the node tree with computed values.

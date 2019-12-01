@@ -3,7 +3,7 @@ use super::{
     text::{TextLayoutInfo, TextState},
     LayoutChild, LayoutText, LayoutTreeNode, LogicalSideOffsets, LogicalSize,
 };
-use crate::dom::{element::DynamicNode, node::AnyNodeData};
+use crate::dom::{element::DynamicNode, node::NodeRef};
 use crate::style::{ComputedValues, DisplayType};
 use crate::util::equal_rc::EqualRc;
 use euclid::{point2, size2};
@@ -120,7 +120,7 @@ impl LineState {
 }
 
 fn collect_inline_items(
-    node: &dyn AnyNodeData,
+    node: NodeRef,
     parent_values: &ComputedValues,
     max_size: LogicalSize,
     items: &mut Vec<InlineLayoutItem>,
@@ -200,7 +200,7 @@ fn calc_inline_layout(max_width: f32, items: &[InlineLayoutItem]) -> EqualRc<Lay
 }
 
 pub fn layout_inline(
-    node: &dyn AnyNodeData,
+    node: NodeRef,
     values: &ComputedValues,
     max_size: LogicalSize,
 ) -> EqualRc<LayoutTreeNode> {

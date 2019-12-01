@@ -175,6 +175,61 @@ where
     }
 }
 
+trait AnyNodeHandle {
+    fn node_data(&self) -> &dyn AnyNodeData;
+    fn to_owned(&self) -> AnyNode;
+}
+
+impl<Elt> AnyNodeHandle for Node<Elt>
+where
+    Elt: Element,
+{
+    fn node_data(&self) -> &dyn AnyNodeData {
+        &**self
+    }
+
+    fn to_owned(&self) -> AnyNode {
+        self.clone().into()
+    }
+}
+
+impl AnyNodeHandle for AnyNode {
+    fn node_data(&self) -> &dyn AnyNodeData {
+        &*self.0
+    }
+
+    fn to_owned(&self) -> AnyNode {
+        self.clone()
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct NodeRef<'a>(&'a dyn AnyNodeHandle);
+
+impl<'a, Elt> From<&'a Node<Elt>> for NodeRef<'a>
+where
+    Elt: Element,
+{
+    fn from(node: &'a Node<Elt>) -> Self {
+        NodeRef(node)
+    }
+}
+
+impl<'a> From<&'a AnyNode> for NodeRef<'a> {
+    fn from(node: &'a AnyNode) -> Self {
+        NodeRef(node)
+    }
+}
+
+impl<'a> Deref for NodeRef<'a> {
+    type Target = dyn AnyNodeData + 'a;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.node_data()
+    }
+}
+
+#[derive(Clone)]
 pub struct AnyNode(Rc<dyn AnyNodeData>);
 
 impl<Elt> From<Node<Elt>> for AnyNode

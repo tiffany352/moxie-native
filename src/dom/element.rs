@@ -1,5 +1,5 @@
 use crate::dom::input::InputEvent;
-use crate::dom::node::{AnyNodeData, Node};
+use crate::dom::node::{Node, NodeRef};
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
 
@@ -67,7 +67,7 @@ impl ElementStates for () {
 
 pub enum DynamicNode<'a> {
     Text(&'a str),
-    Node(&'a dyn AnyNodeData),
+    Node(NodeRef<'a>),
 }
 
 impl<'a, Elt> From<&'a Node<Elt>> for DynamicNode<'a>
@@ -75,7 +75,7 @@ where
     Elt: Element,
 {
     fn from(value: &'a Node<Elt>) -> Self {
-        DynamicNode::Node(&**value)
+        DynamicNode::Node(value.into())
     }
 }
 
@@ -102,7 +102,7 @@ where
     Elt: Element,
 {
     fn get_node(&self) -> DynamicNode {
-        DynamicNode::Node(&**self)
+        DynamicNode::Node(self.into())
     }
 }
 

@@ -91,9 +91,9 @@ impl LayoutEngine {
                 let values = node.computed_values().get().unwrap();
                 match values.display {
                     DisplayType::Block(ref block) => {
-                        block::layout_block(&**node, &values, block, *size)
+                        block::layout_block(node.into(), &values, block, *size)
                     }
-                    DisplayType::Inline(_) => inline::layout_inline(&**node, &values, *size),
+                    DisplayType::Inline(_) => inline::layout_inline(node.into(), &values, *size),
                 }
             },
             env! {
