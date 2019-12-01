@@ -13,7 +13,7 @@ define_style! {
     };
 
     static CHILD_STYLE = {
-        padding: 10 px,
+        padding: 10 px auto auto auto,
         background_color: rgb(255, 255, 255),
     };
 

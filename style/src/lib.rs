@@ -54,6 +54,7 @@ impl ToTokens for Selector {
     }
 }
 
+#[derive(Clone)]
 enum LengthItem {
     Pixels(f32),
     Ems(f32),
@@ -82,6 +83,7 @@ impl Parse for LengthItem {
     }
 }
 
+#[derive(Clone)]
 enum Length {
     Const(LengthItem),
     Add(Box<Length>, Box<Length>),
@@ -259,19 +261,96 @@ impl ToTokens for Color {
     }
 }
 
+fn parse_length_or_auto(input: ParseStream) -> Result<Option<Length>> {
+    if let Ok(ident) = input.fork().parse::<Ident>() {
+        if ident.to_string() == "auto" {
+            input.parse::<Ident>()?;
+            return Ok(None);
+        }
+    }
+    Ok(Some(input.parse()?))
+}
+
+struct SideOffsets {
+    left: Option<Length>,
+    right: Option<Length>,
+    top: Option<Length>,
+    bottom: Option<Length>,
+}
+
+impl Parse for SideOffsets {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let left: Option<Length> = input.call(parse_length_or_auto)?;
+        if input.peek(Token![,]) {
+            return Ok(SideOffsets {
+                left: left.clone(),
+                right: left.clone(),
+                top: left.clone(),
+                bottom: left,
+            });
+        }
+        let top = input.call(parse_length_or_auto)?;
+        let right = input.call(parse_length_or_auto)?;
+        let bottom = input.call(parse_length_or_auto)?;
+        Ok(SideOffsets {
+            left,
+            right,
+            top,
+            bottom,
+        })
+    }
+}
+
+struct OptionLength(Option<Length>);
+
+impl ToTokens for OptionLength {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        if let Some(ref length) = self.0 {
+            stream.extend(quote!(Some(#length)))
+        } else {
+            stream.extend(quote!(None))
+        }
+    }
+}
+
+impl ToTokens for SideOffsets {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        let SideOffsets {
+            left,
+            right,
+            top,
+            bottom,
+        } = self;
+        let left = OptionLength(left.clone());
+        let right = OptionLength(right.clone());
+        let top = OptionLength(top.clone());
+        let bottom = OptionLength(bottom.clone());
+        stream.extend(quote!(
+            ::moxie_native::style::SideOffsets {
+                left: #left,
+                right: #right,
+                top: #top,
+                bottom: #bottom,
+            }
+        ))
+    }
+}
+
 enum Value {
     Length(Length),
     Color(Color),
+    SideOffsets(SideOffsets),
     Enum(Ident, Ident),
 }
 
 impl ToTokens for Value {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            Value::Length(value) => value.to_tokens(tokens),
-            Value::Color(value) => value.to_tokens(tokens),
+            Value::Length(value) => tokens.extend(quote!(Some(#value))),
+            Value::Color(value) => tokens.extend(quote!(Some(#value))),
+            Value::SideOffsets(value) => value.to_tokens(tokens),
             Value::Enum(enum_ty, variant) => {
-                tokens.extend(quote!(::moxie_native::style::#enum_ty::#variant))
+                tokens.extend(quote!(Some(::moxie_native::style::#enum_ty::#variant)))
             }
         }
     }
@@ -306,6 +385,7 @@ impl Enum {
 enum AttributeType {
     Length,
     Color,
+    SideOffsets,
     Enum(Enum),
     Unknown,
 }
@@ -313,7 +393,8 @@ enum AttributeType {
 impl AttributeType {
     fn from_name(name: &str) -> AttributeType {
         match name {
-            "width" | "height" | "text_size" | "padding" | "margin" => AttributeType::Length,
+            "padding" | "margin" => AttributeType::SideOffsets,
+            "width" | "height" | "text_size" => AttributeType::Length,
             "text_color" | "background_color" => AttributeType::Color,
             "direction" => AttributeType::Enum(Enum {
                 name: "Direction",
@@ -351,8 +432,9 @@ impl Parse for Attribute {
         let name = input.parse::<Ident>()?;
         input.parse::<Token![:]>()?;
         let value = match AttributeType::from_name(name.to_string().as_ref()) {
-            AttributeType::Length => Value::Length(input.parse::<Length>()?),
-            AttributeType::Color => Value::Color(input.parse::<Color>()?),
+            AttributeType::Length => Value::Length(input.parse()?),
+            AttributeType::Color => Value::Color(input.parse()?),
+            AttributeType::SideOffsets => Value::SideOffsets(input.parse()?),
             AttributeType::Enum(enum_ty) => {
                 let ident = input.parse::<Ident>()?;
                 if let Some(canonical) = enum_ty.lookup(&ident.to_string()[..]) {
@@ -385,7 +467,7 @@ impl ToTokens for Attribute {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let name = &self.name;
         let value = &self.value;
-        tokens.extend(quote!(#name : Some(#value)));
+        tokens.extend(quote!(#name : #value));
     }
 }
 
