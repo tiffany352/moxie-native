@@ -25,7 +25,7 @@ define_style! {
     };
 }
 
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Message {
     Op(Op),
     Equ,
@@ -33,7 +33,7 @@ enum Message {
     Digit(i64),
 }
 
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Op {
     Add,
     Sub,
@@ -52,7 +52,7 @@ impl Op {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct CalcState {
     previous: i64,
     value: i64,
@@ -127,7 +127,9 @@ impl CalcState {
 }
 
 #[topo::nested]
-fn calc_function(state: Key<CalcState>, message: Message) -> Node<Button> {
+#[illicit::from_env(state: &Key<CalcState>)]
+fn calc_function(message: Message) -> Node<Button> {
+    let state = state.clone();
     let on_click = move |_event: &ClickEvent| state.update(|state| Some(state.process(message)));
 
     let text = match message {
@@ -148,9 +150,8 @@ fn calc_function(state: Key<CalcState>, message: Message) -> Node<Button> {
 }
 
 #[topo::nested]
+#[illicit::from_env(state: &Key<CalcState>)]
 fn calculator() -> Node<App> {
-    let state: Key<CalcState> = state!(|| CalcState::new());
-
     mox! {
         <app>
             <window title="Moxie-Native Calculator">
@@ -158,28 +159,28 @@ fn calculator() -> Node<App> {
                     <span>{% "{}", state.display()}</span>
                 </view>
                 <view style={ROW_STYLE}>
-                    <calc_function _=(state.clone(), Message::Digit(7)) />
-                    <calc_function _=(state.clone(), Message::Digit(8)) />
-                    <calc_function _=(state.clone(), Message::Digit(9)) />
-                    <calc_function _=(state.clone(), Message::Op(Op::Mul)) />
+                    <calc_function _=(Message::Digit(7)) />
+                    <calc_function _=(Message::Digit(8)) />
+                    <calc_function _=(Message::Digit(9)) />
+                    <calc_function _=(Message::Op(Op::Mul)) />
                 </view>
                 <view style={ROW_STYLE}>
-                    <calc_function _=(state.clone(), Message::Digit(4)) />
-                    <calc_function _=(state.clone(), Message::Digit(5)) />
-                    <calc_function _=(state.clone(), Message::Digit(6)) />
-                    <calc_function _=(state.clone(), Message::Op(Op::Div)) />
+                    <calc_function _=(Message::Digit(4)) />
+                    <calc_function _=(Message::Digit(5)) />
+                    <calc_function _=(Message::Digit(6)) />
+                    <calc_function _=(Message::Op(Op::Div)) />
                 </view>
                 <view style={ROW_STYLE}>
-                    <calc_function _=(state.clone(), Message::Digit(1)) />
-                    <calc_function _=(state.clone(), Message::Digit(2)) />
-                    <calc_function _=(state.clone(), Message::Digit(3)) />
-                    <calc_function _=(state.clone(), Message::Op(Op::Add)) />
+                    <calc_function _=(Message::Digit(1)) />
+                    <calc_function _=(Message::Digit(2)) />
+                    <calc_function _=(Message::Digit(3)) />
+                    <calc_function _=(Message::Op(Op::Add)) />
                 </view>
                 <view style={ROW_STYLE}>
-                    <calc_function _=(state.clone(), Message::Digit(0)) />
-                    <calc_function _=(state.clone(), Message::Equ) />
-                    <calc_function _=(state.clone(), Message::Cls) />
-                    <calc_function _=(state.clone(), Message::Op(Op::Sub)) />
+                    <calc_function _=(Message::Digit(0)) />
+                    <calc_function _=(Message::Equ) />
+                    <calc_function _=(Message::Cls) />
+                    <calc_function _=(Message::Op(Op::Sub)) />
                 </view>
             </window>
         </app>
@@ -187,6 +188,9 @@ fn calculator() -> Node<App> {
 }
 
 fn main() {
-    let runtime = moxie_native::Runtime::new(|| calculator!());
+    let runtime = moxie_native::Runtime::new(|| {
+        let with_state = illicit::child_env!(Key<CalcState> => state!(|| CalcState::new()));
+        with_state.enter(|| calculator!())
+    });
     runtime.start();
 }
