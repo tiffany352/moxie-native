@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub struct EqualRc<T>(Rc<T>);
 
 impl<T> EqualRc<T> {

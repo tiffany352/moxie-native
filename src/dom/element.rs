@@ -2,11 +2,12 @@ use crate::dom::input::InputEvent;
 use crate::dom::node::{Node, NodeRef};
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
+use std::fmt::Debug;
 
 /// Represents the attributes and behavior of a single DOM element.
-pub trait Element: Default + Clone + PartialEq + 'static {
+pub trait Element: Default + Clone + Debug + PartialEq + 'static {
     /// The type of children that can be parented to this element.
-    type Child: NodeChild + Clone + PartialEq;
+    type Child: NodeChild + Clone + Debug + PartialEq;
     type Handlers: HandlerList;
     type States: ElementStates + Clone + Copy + Default + PartialEq;
 

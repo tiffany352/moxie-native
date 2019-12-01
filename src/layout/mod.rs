@@ -65,7 +65,7 @@ pub struct LayoutTreeNode {
 /// Used to build the layout tree, with internal caching for
 /// performance.
 pub struct LayoutEngine {
-    runtime: Runtime<fn() -> EqualRc<LayoutTreeNode>, EqualRc<LayoutTreeNode>>,
+    runtime: Runtime<fn() -> EqualRc<LayoutTreeNode>>,
 }
 
 impl LayoutEngine {
@@ -75,7 +75,7 @@ impl LayoutEngine {
         }
     }
 
-    #[topo::from_env(node: &Node<Window>, size: &LogicalSize)]
+    #[illicit::from_env(node: &Node<Window>, size: &LogicalSize)]
     fn run_layout() -> EqualRc<LayoutTreeNode> {
         let collection = once!(|| {
             let mut collection = FontCollection::new();
@@ -90,8 +90,8 @@ impl LayoutEngine {
             EqualRc::new(collection)
         });
 
-        topo::call!(
-            {
+        illicit::child_env!(EqualRc<FontCollection> => collection).enter(|| {
+            topo::call!({
                 let values = node.computed_values().get().unwrap();
                 match values.display {
                     DisplayType::Block(ref block) => {
@@ -99,22 +99,17 @@ impl LayoutEngine {
                     }
                     DisplayType::Inline(_) => inline::layout_inline(node.into(), &values, *size),
                 }
-            },
-            env! {
-                EqualRc<FontCollection> => collection,
-            }
-        )
+            },)
+        })
     }
 
     /// Perform a layout step based on the new DOM and content size, and
     /// return a fresh layout tree.
     pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> EqualRc<LayoutTreeNode> {
-        topo::call!(
-            { self.runtime.run_once() },
-            env! {
-                Node<Window> => node,
-                LogicalSize => size,
-            }
+        illicit::child_env! (
+            Node<Window> => node,
+            LogicalSize => size
         )
+        .enter(|| topo::call!({ self.runtime.run_once() },))
     }
 }

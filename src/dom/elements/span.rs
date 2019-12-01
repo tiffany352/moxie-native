@@ -4,7 +4,7 @@ use crate::style::{ComputedValues, DisplayType, InlineValues, Style};
 
 /// Corresponds to <span>. This element is typically used for inline
 /// layout of text.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct Span {
     style: Option<Style>,
 }

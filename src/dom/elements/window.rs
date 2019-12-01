@@ -4,7 +4,7 @@ use crate::style::Style;
 
 /// Corresponds to <window>. This is the top-level container for UI and
 /// corresponds to an OS window.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Window {
     style: Option<Style>,
     pub title: String,

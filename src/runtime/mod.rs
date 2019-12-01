@@ -1,6 +1,6 @@
 use crate::dom::devtools::DevToolsRegistry;
 use crate::dom::{App, Node};
-use ::moxie::embed::Runtime as MoxieRuntime;
+use moxie::embed::Runtime as MoxieRuntime;
 use std::collections::HashMap;
 use std::iter;
 use winit::{
@@ -13,7 +13,7 @@ mod window;
 
 /// Contains the event loop and the root component of the application.
 pub struct Runtime {
-    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Node<App> + 'static>, Node<App>>,
+    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Node<App> + 'static>>,
     windows: HashMap<WindowId, window::Window>,
     window_ids: Vec<WindowId>,
     proxy: Option<EventLoopProxy<()>>,
@@ -24,17 +24,14 @@ impl Runtime {
     pub fn new(mut root: impl FnMut() -> Node<App> + 'static) -> Runtime {
         Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || {
-                topo::call!(
-                    {
-                        let registry = topo::Env::expect::<DevToolsRegistry>();
+                illicit::child_env!(DevToolsRegistry => DevToolsRegistry::new()).enter(|| {
+                    topo::call!({
+                        let registry = illicit::Env::expect::<DevToolsRegistry>();
                         let app = root();
                         registry.update(app.clone().into());
                         app
-                    },
-                    env! {
-                        DevToolsRegistry => DevToolsRegistry::new(),
-                    }
-                )
+                    })
+                })
             })),
             windows: HashMap::new(),
             window_ids: vec![],

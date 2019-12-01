@@ -6,7 +6,7 @@ use crate::util::event_handler::EventHandler;
 
 /// Corresponds to <button>. This element can be hovered and pressed,
 /// resulting in corresponding events.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct Button {
     style: Option<Style>,
 }

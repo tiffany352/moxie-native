@@ -75,8 +75,9 @@ where
 
 impl<Parent, Item> IntoChildren<Parent> for Option<Item>
 where
-    Parent:Element,
-    Parent::Child: From<Item> {
+    Parent: Element,
+    Parent::Child: From<Item>,
+{
     type Item = Item;
     type IntoIter = std::option::IntoIter<Item>;
 
@@ -160,7 +161,12 @@ where
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
     pub fn build(self) -> Node<Elt> {
-        let node = memo!((self.element, self.children), |(elt, children): &(
+        let Self {
+            element,
+            children,
+            handlers,
+        } = self;
+        let node = memo!((element, children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
@@ -168,7 +174,7 @@ where
             children.clone()
         ));
 
-        node.handlers().replace(self.handlers);
+        node.handlers().replace(handlers);
 
         node
     }

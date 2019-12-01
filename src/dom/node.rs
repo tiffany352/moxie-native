@@ -1,8 +1,9 @@
 use crate::dom::element::{DynamicNode, Element, ElementStates, NodeChild};
 use crate::dom::input::InputEvent;
 use crate::style::{ComputedValues, Style};
-use std::any::TypeId;
+use std::any::{type_name, TypeId};
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -16,6 +17,22 @@ where
     states: Cell<Elt::States>,
     computed_values: Cell<Option<ComputedValues>>,
     children: Vec<Elt::Child>,
+}
+
+impl<Elt> Debug for NodeData<Elt>
+where
+    Elt: Element,
+{
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        let name = format!("NodeData<{}>", type_name::<Elt>());
+        f.debug_struct(&name)
+            .field("element", &self.element())
+            .field("computed_values", &self.computed_values)
+            .field("children", &self.children)
+            .field("handlers", &"...")
+            .field("states", &"...")
+            .finish()
+    }
 }
 
 impl<Elt> NodeData<Elt>
@@ -70,7 +87,7 @@ impl<'a> Iterator for NodeDataChildrenIter<'a> {
     }
 }
 
-pub trait AnyNodeData {
+pub trait AnyNodeData: Debug {
     fn computed_values(&self) -> &Cell<Option<ComputedValues>>;
     fn get_child(&self, index: usize) -> Option<DynamicNode>;
     fn children(&self) -> NodeDataChildrenIter;
@@ -132,7 +149,7 @@ where
 }
 
 /// Typed handle to a DOM node.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Node<Elt: Element>(Rc<NodeData<Elt>>);
 
 impl<Elt> Node<Elt>
@@ -244,7 +261,7 @@ impl<'a> NodeRef<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AnyNode(Rc<dyn AnyNodeData>);
 
 impl<Elt> From<Node<Elt>> for AnyNode

@@ -2,7 +2,7 @@
 /// then implements NodeChild for that enum.
 macro_rules! multiple_children {
     (enum $name:ident { $( $var_name:ident ( $var_ty:ty ) ),+ $(,)* }) => {
-        #[derive(Clone, PartialEq)]
+        #[derive(Clone, Debug, PartialEq)]
         pub enum $name {
             $(
                 $var_name ($var_ty)
