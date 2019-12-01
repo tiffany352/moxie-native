@@ -11,7 +11,7 @@ glutin = "0.22.0-alpha5"
 scopeguard = "1"
 euclid = "0.20.3"
 slotmap = "0.4"
-font-kit = "0.2.0"
+font-kit = "0.4.0"
 proc-macro-hack = "0.5"
 
 [dependencies.webrender]
@@ -32,7 +32,7 @@ rev = "1d7b163543c6d6b6cc4696ee2dcad33a78971da9"
 
 [dependencies.skribo]
 git = "https://github.com/tiffany352/skribo.git"
-rev = "9072203e1a1eef7bded0c02c82f41f09a0b58641"
+rev = "9d80461d08a33b5360f4ffc89abdc712d7a91015"
 
 [dependencies.moxie-native-style]
 path = "./style"
