@@ -2,7 +2,6 @@ use super::{Glyph, TextFragment};
 use crate::util::equal_rc::EqualRc;
 use crate::util::word_break_iter;
 use euclid::point2;
-use moxie::*;
 use skribo::{FontCollection, LayoutSession, TextStyle};
 use std::cell::RefCell;
 
@@ -24,7 +23,7 @@ pub struct TextState<'a> {
 }
 
 impl TextLayoutInfo {
-    #[topo::from_env(collection: &EqualRc<FontCollection>)]
+    #[illicit::from_env(collection: &EqualRc<FontCollection>)]
     pub fn new(text: String, size: f32) -> Self {
         TextLayoutInfo {
             session: RefCell::new(LayoutSession::create(text, &TextStyle { size }, collection)),

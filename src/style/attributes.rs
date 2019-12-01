@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 /// Represents a position or size that can be specified in multiple
 /// units, which are resolved during styling.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct Value {
     pub pixels: f32,
     pub ems: f32,
@@ -29,7 +29,7 @@ impl Value {
 }
 
 /// Decides how a given element should be laid out.
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Display {
     /// Treat each child as a box and place them in a linear list.
     Block,
@@ -37,7 +37,7 @@ pub enum Display {
     Inline,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SideOffsets {
     pub left: Option<Value>,
     pub right: Option<Value>,
@@ -45,7 +45,7 @@ pub struct SideOffsets {
     pub bottom: Option<Value>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CommonAttributes {
     pub display: Option<Display>,
     pub direction: Option<Direction>,
@@ -102,7 +102,7 @@ impl Default for CommonAttributes {
 }
 
 impl CommonAttributes {
-    #[topo::from_env(viewport_size: &LogicalSize)]
+    #[illicit::from_env(viewport_size: &LogicalSize)]
     pub(super) fn apply(&self, values: &mut ComputedValues) {
         let ctx = ValueContext {
             pixels_per_em: 16.0, // todo

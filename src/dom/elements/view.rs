@@ -4,7 +4,7 @@ use crate::style::{ComputedValues, Style};
 use crate::Color;
 
 /// Corresponds to <view>. Generic frame for layout purposes.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct View {
     style: Option<Style>,
 }

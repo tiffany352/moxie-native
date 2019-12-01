@@ -82,8 +82,18 @@ pub struct SubStyle {
     pub attributes: CommonAttributes,
 }
 
+impl std::fmt::Debug for SubStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("SubStyle")
+            .field("selector", &"<fn(NodeRef) -> bool>")
+            .field("attributes", &self.attributes)
+            .finish()
+    }
+}
+
 /// Affects the presentation of elements that are chosen based on the
 /// selector. See `style!` for how you define this.
+#[derive(Debug)]
 pub struct StyleData {
     pub attributes: CommonAttributes,
     pub sub_styles: &'static [SubStyle],
@@ -92,7 +102,7 @@ pub struct StyleData {
     pub line: u32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Style(pub &'static StyleData);
 
 impl Style {
@@ -113,7 +123,7 @@ impl PartialEq for Style {
 
 /// Used to annotate the node tree with computed values from styling.
 pub struct StyleEngine {
-    runtime: Runtime<fn(), ()>,
+    runtime: Runtime<fn()>,
 }
 
 impl StyleEngine {
@@ -150,19 +160,17 @@ impl StyleEngine {
         }
     }
 
-    #[topo::from_env(node: &Node<Window>)]
+    #[illicit::from_env(node: &Node<Window>)]
     fn run_styling() {
         Self::update_style(node.into(), None);
     }
 
     /// Update the node tree with computed values.
     pub fn update(&mut self, node: Node<Window>, size: LogicalSize) {
-        topo::call!(
-            { self.runtime.run_once() },
-            env! {
-                Node<Window> => node,
-                LogicalSize => size,
-            }
+        illicit::child_env!(
+            Node<Window> => node,
+            LogicalSize => size
         )
+        .enter(|| topo::call!(self.runtime.run_once()))
     }
 }

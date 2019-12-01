@@ -111,6 +111,7 @@ fn node_view(node: NodeRef) -> Node<View> {
     }
 }
 
+#[derive(Debug)]
 struct Tools {
     root: Key<Option<AnyNode>>,
 }

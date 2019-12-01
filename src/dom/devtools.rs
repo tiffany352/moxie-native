@@ -1,6 +1,8 @@
 use crate::dom::node::AnyNode;
 use std::cell::RefCell;
+use std::fmt::Debug;
 
+#[derive(Debug)]
 pub(crate) struct DevToolsRegistry {
     current: RefCell<Box<dyn DevTools>>,
 }
@@ -17,7 +19,7 @@ impl DevToolsRegistry {
     }
 }
 
-pub trait DevTools: 'static {
+pub trait DevTools: Debug + 'static {
     /// Be careful to ignore your own subtree when processing this, or an infinite loop is possible.
     fn on_update(&mut self, node: AnyNode);
 }
@@ -26,7 +28,7 @@ impl DevTools for () {
     fn on_update(&mut self, _node: AnyNode) {}
 }
 
-#[topo::from_env(tools_registry: &DevToolsRegistry)]
+#[illicit::from_env(tools_registry: &DevToolsRegistry)]
 pub fn register_devtools(tools: impl DevTools) {
     tools_registry.current.replace(Box::new(tools));
 }

@@ -4,7 +4,7 @@ use crate::style::Style;
 
 /// Corresponds to <app>. This is the root of the DOM and contains
 /// windows.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct App {}
 
 impl Default for App {
