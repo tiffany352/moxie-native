@@ -91,6 +91,17 @@ fn main() {
 }
 ```
 
+## Images
+
+What would a GUI crate be without screenshots.
+
+### Calc example
+![calc example](images/calc.png)
+### Readme demo example
+![readme_demo example](images/readme_demo.png)
+### Test example
+![test example](images/test.png)
+
 ## License
 
 Mozilla Public License, version 2.
