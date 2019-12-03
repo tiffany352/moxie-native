@@ -7,7 +7,7 @@ renders using Webrender, instead of relying on other UI toolkits like
 Gtk or on a web browser. This gives you control over how your
 application looks, but may lose some native look and feel.
 
-The front-facing API is built using Moxie, a framework for declaratively
+The front-facing API is built using [Moxie](https://moxie.rs/), a framework for declaratively
 defining UI similar to React.
 
 ## Features
