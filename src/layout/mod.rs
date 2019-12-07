@@ -1,10 +1,11 @@
 //! This module handles creating the layout tree, which includes
 //! arranging elements and performing text layout.
 
-use crate::dom::node::AnyNode;
+use crate::dom::node::{AnyNode, AnyNodeData};
 use crate::dom::{Node, Window};
 use crate::style::DisplayType;
 use crate::util::equal_rc::EqualRc;
+use crate::window_runtime::LocalNodeStorage;
 use euclid::{Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -12,6 +13,7 @@ use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
 use moxie::*;
 use skribo::{FontCollection, FontFamily, FontRef};
+use std::rc::Rc;
 
 mod block;
 mod inline;
@@ -75,7 +77,7 @@ impl LayoutEngine {
         }
     }
 
-    #[illicit::from_env(node: &Node<Window>, size: &LogicalSize)]
+    #[illicit::from_env(node: &Node<Window>, size: &LogicalSize, local_nodes: &Rc<LocalNodeStorage>)]
     fn run_layout() -> EqualRc<LayoutTreeNode> {
         let collection = once!(|| {
             let mut collection = FontCollection::new();
@@ -92,7 +94,7 @@ impl LayoutEngine {
 
         illicit::child_env!(EqualRc<FontCollection> => collection).enter(|| {
             topo::call!({
-                let values = node.computed_values().get().unwrap();
+                let values = local_nodes.values(node.id());
                 match values.display {
                     DisplayType::Block(ref block) => {
                         block::layout_block(node.into(), &values, block, *size)
@@ -105,10 +107,16 @@ impl LayoutEngine {
 
     /// Perform a layout step based on the new DOM and content size, and
     /// return a fresh layout tree.
-    pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> EqualRc<LayoutTreeNode> {
+    pub fn layout(
+        &mut self,
+        node: Node<Window>,
+        size: LogicalSize,
+        storage: Rc<LocalNodeStorage>,
+    ) -> EqualRc<LayoutTreeNode> {
         illicit::child_env! (
             Node<Window> => node,
-            LogicalSize => size
+            LogicalSize => size,
+            Rc<LocalNodeStorage> => storage
         )
         .enter(|| topo::call!({ self.runtime.run_once() },))
     }

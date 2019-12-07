@@ -61,6 +61,5 @@ fn my_app() -> Node<App> {
 
 fn main() {
     // The entrypoint to the application is creating a runtime and starting it.
-    let runtime = moxie_native::Runtime::new(|| my_app!());
-    runtime.start();
+    moxie_native::boot(|| my_app!());
 }

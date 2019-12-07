@@ -1,114 +1,170 @@
 use crate::dom::devtools::DevToolsRegistry;
-use crate::dom::{App, Node};
+use crate::dom::{element::Element, element::HandlerList, App, Node};
+use crate::window_runtime::{Message as WindowMessage, WindowRuntimeNotifier};
+use futures::task::ArcWake;
 use moxie::embed::Runtime as MoxieRuntime;
+use parking_lot::{Condvar, Mutex};
+use std::any::Any;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::iter;
-use winit::{
-    event::Event,
-    event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
-    window::WindowId,
-};
+use std::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
 
-mod window;
+pub enum Message {
+    InvokeHandler {
+        node_id: usize,
+        payload: Box<dyn Any + Send>,
+    },
+}
+
+pub struct RuntimeWaker {
+    var: Condvar,
+    messages: Mutex<Vec<Message>>,
+}
+
+impl ArcWake for RuntimeWaker {
+    fn wake_by_ref(arc: &Arc<Self>) {
+        arc.var.notify_all();
+    }
+
+    fn wake(self: Arc<Self>) {
+        self.var.notify_all();
+    }
+}
+
+impl RuntimeWaker {
+    pub fn new() -> Arc<RuntimeWaker> {
+        Arc::new(RuntimeWaker {
+            var: Condvar::new(),
+            messages: Mutex::new(vec![]),
+        })
+    }
+
+    pub fn send_message(&self, message: Message) {
+        self.messages.lock().push(message);
+        self.var.notify_all();
+    }
+}
+
+trait AnyHandlers {
+    fn invoke(&self, message: Box<dyn Any + Send>);
+}
+
+struct Handlers<Elt>
+where
+    Elt: Element,
+{
+    handlers: Elt::Handlers,
+}
+
+impl<Elt> AnyHandlers for Handlers<Elt>
+where
+    Elt: Element,
+{
+    fn invoke(&self, message: Box<dyn Any + Send>) {
+        let message = message
+            .downcast::<<Elt::Handlers as HandlerList>::Message>()
+            .unwrap();
+        self.handlers.handle_message(*message);
+    }
+}
+
+pub struct HandlersStorage {
+    map: RefCell<HashMap<usize, Box<dyn AnyHandlers>>>,
+}
+
+impl fmt::Debug for HandlersStorage {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "HandlersStorage {{ ... }}")
+    }
+}
+
+impl HandlersStorage {
+    fn new() -> HandlersStorage {
+        HandlersStorage {
+            map: RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub fn set_handlers<Elt>(&self, id: usize, handlers: Elt::Handlers)
+    where
+        Elt: Element,
+    {
+        self.map
+            .borrow_mut()
+            .insert(id, Box::new(Handlers::<Elt> { handlers }));
+    }
+
+    pub fn invoke(&self, id: usize, payload: Box<dyn Any + Send>) {
+        self.map.borrow_mut().get(&id).unwrap().invoke(payload);
+    }
+}
+
+type RootFunc = Box<dyn FnMut() -> Node<App> + 'static>;
 
 /// Contains the event loop and the root component of the application.
 pub struct Runtime {
-    moxie_runtime: MoxieRuntime<Box<dyn FnMut() -> Node<App> + 'static>>,
-    windows: HashMap<WindowId, window::Window>,
-    window_ids: Vec<WindowId>,
-    proxy: Option<EventLoopProxy<()>>,
+    moxie_runtime: MoxieRuntime<RootFunc>,
+    handlers: Rc<HandlersStorage>,
+    waker: Arc<RuntimeWaker>,
 }
 
 impl Runtime {
-    /// Create a new runtime based on the application's root component.
-    pub fn new(mut root: impl FnMut() -> Node<App> + 'static) -> Runtime {
-        Runtime {
-            moxie_runtime: MoxieRuntime::new(Box::new(move || {
-                illicit::child_env!(DevToolsRegistry => DevToolsRegistry::new()).enter(|| {
-                    topo::call!({
-                        let registry = illicit::Env::expect::<DevToolsRegistry>();
-                        let app = root();
-                        registry.update(app.clone().into());
-                        app
-                    })
+    pub fn with_waker(
+        waker: Arc<RuntimeWaker>,
+        mut root: impl FnMut() -> Node<App> + 'static,
+    ) -> Runtime {
+        let handlers = Rc::new(HandlersStorage::new());
+        let handlers2 = handlers.clone();
+        let mut moxie_runtime: MoxieRuntime<RootFunc> = MoxieRuntime::new(Box::new(move || {
+            illicit::child_env!(
+                DevToolsRegistry => DevToolsRegistry::new(),
+                Rc<HandlersStorage> => handlers2.clone()
+            )
+            .enter(|| {
+                topo::call!({
+                    let registry = illicit::Env::expect::<DevToolsRegistry>();
+                    let app = root();
+                    registry.update(app.clone().into());
+                    app
                 })
-            })),
-            windows: HashMap::new(),
-            window_ids: vec![],
-            proxy: None,
+            })
+        }));
+        moxie_runtime.set_state_change_waker(futures::task::waker(waker.clone()));
+        Runtime {
+            moxie_runtime,
+            handlers,
+            waker,
         }
     }
 
-    /// Handle events
-    fn process(
-        &mut self,
-        event: Event<()>,
-        target: &EventLoopWindowTarget<()>,
-        control_flow: &mut ControlFlow,
-    ) {
-        let mut did_process = false;
-        match event {
-            Event::WindowEvent { event, window_id } => {
-                let window = self.windows.get_mut(&window_id).unwrap();
-                let res = window.process(event);
-                did_process = res;
-            }
-            _ => *control_flow = ControlFlow::Wait,
-        }
-        if did_process {
-            self.update_runtime(target);
-        }
+    /// Create a new runtime based on the application's root component.
+    pub fn new(root: impl FnMut() -> Node<App> + 'static) -> Runtime {
+        Self::with_waker(RuntimeWaker::new(), root)
     }
 
-    /// Updates the moxie runtime and reconciles the DOM changes,
-    /// re-rendering if things have changed.
-    fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
-        let app = self.moxie_runtime.run_once();
-
-        let first_iter = app.children().iter().map(Some).chain(iter::repeat(None));
-        let second_iter = self
-            .window_ids
-            .drain(..)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(Some)
-            .chain(iter::repeat(None));
-
-        for (dom_window, window_id) in first_iter.zip(second_iter) {
-            match (dom_window, window_id) {
-                (Some(dom_window), Some(window_id)) => {
-                    let window = self.windows.get_mut(&window_id).unwrap();
-                    window.set_dom_window(dom_window.clone());
-                    window.render();
-                    self.window_ids.push(window_id);
-                }
-                (Some(dom_window), None) => {
-                    let window = window::Window::new(
-                        dom_window.clone(),
-                        event_loop,
-                        self.proxy.as_ref().unwrap().clone(),
-                    );
-                    let id = window.window_id();
-                    self.windows.insert(id, window);
-                    self.window_ids.push(id);
-                }
-                (None, Some(window_id)) => {
-                    self.windows.remove(&window_id);
-                }
-                (None, None) => break,
-            }
-        }
+    pub fn waker(&self) -> Arc<RuntimeWaker> {
+        self.waker.clone()
     }
 
     /// Start up the application.
-    pub fn start(mut self) {
-        let event_loop = EventLoop::new();
+    pub fn start(mut self, notifier: WindowRuntimeNotifier) {
+        let mut messages = self.waker.messages.lock();
 
-        self.proxy = Some(event_loop.create_proxy());
+        loop {
+            for message in messages.drain(..) {
+                match message {
+                    Message::InvokeHandler { node_id, payload } => {
+                        self.handlers.invoke(node_id, payload);
+                    }
+                }
+            }
 
-        self.update_runtime(&event_loop);
+            let app = self.moxie_runtime.run_once();
+            notifier.send_message(WindowMessage::UpdateDom(app));
 
-        event_loop
-            .run(move |event, target, control_flow| self.process(event, target, control_flow));
+            self.waker.var.wait(&mut messages);
+        }
     }
 }

@@ -2,8 +2,10 @@ use super::{inline, LayoutChild, LayoutTreeNode, LogicalSize, RenderData};
 use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
+use crate::window_runtime::LocalNodeStorage;
 use euclid::{point2, size2, vec2};
 use moxie::*;
+use std::rc::Rc;
 
 fn calc_max_size(values: &BlockValues, parent_size: LogicalSize) -> LogicalSize {
     let mut outer = parent_size;
@@ -84,6 +86,7 @@ fn calc_block_layout(
     })
 }
 
+#[illicit::from_env(local_nodes: &Rc<LocalNodeStorage>)]
 pub fn layout_block(
     node: NodeRef,
     values: &ComputedValues,
@@ -98,7 +101,7 @@ pub fn layout_block(
             {
                 match child {
                     DynamicNode::Node(node) => {
-                        let values = node.computed_values().get().unwrap();
+                        let values = local_nodes.values(node.id());
                         match values.display {
                             DisplayType::Block(ref block) => {
                                 children.push(layout_block(node, &values, block, max_size));

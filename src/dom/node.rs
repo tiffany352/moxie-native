@@ -1,23 +1,23 @@
-use crate::dom::element::{DynamicNode, Element, ElementStates, NodeChild};
-use crate::dom::input::InputEvent;
+use crate::dom::element::{DynElement, DynamicNode, Element, NodeChild};
 use crate::style::{ComputedValues, Style};
 use std::any::{type_name, TypeId};
-use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct NodeData<Elt>
 where
     Elt: Element,
 {
     element: Elt,
-    handlers: RefCell<Elt::Handlers>,
-    states: Cell<Elt::States>,
-    computed_values: Cell<Option<ComputedValues>>,
+    id: usize,
     children: Vec<Elt::Child>,
 }
+
+unsafe impl<Elt> Send for NodeData<Elt> where Elt: Element {}
+
+unsafe impl<Elt> Sync for NodeData<Elt> where Elt: Element {}
 
 impl<Elt> Debug for NodeData<Elt>
 where
@@ -26,11 +26,9 @@ where
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let name = format!("NodeData<{}>", type_name::<Elt>());
         f.debug_struct(&name)
+            .field("id", &self.id)
             .field("element", &self.element())
-            .field("computed_values", &self.computed_values)
             .field("children", &self.children)
-            .field("handlers", &"...")
-            .field("states", &"...")
             .finish()
     }
 }
@@ -39,13 +37,11 @@ impl<Elt> NodeData<Elt>
 where
     Elt: Element,
 {
-    fn new(element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
+    fn new(id: usize, element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
         NodeData {
-            element: element,
-            handlers: RefCell::new(Default::default()),
-            states: Cell::new(Default::default()),
-            computed_values: Cell::new(None),
-            children: children,
+            element,
+            id,
+            children,
         }
     }
 
@@ -57,18 +53,6 @@ where
     /// Returns a reference to the element representing this node.
     pub fn element(&self) -> &Elt {
         &self.element
-    }
-
-    pub fn states(&self) -> &Cell<Elt::States> {
-        &self.states
-    }
-
-    pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.computed_values
-    }
-
-    pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
-        &self.handlers
     }
 }
 
@@ -88,25 +72,37 @@ impl<'a> Iterator for NodeDataChildrenIter<'a> {
 }
 
 pub trait AnyNodeData: Debug {
-    fn computed_values(&self) -> &Cell<Option<ComputedValues>>;
     fn get_child(&self, index: usize) -> Option<DynamicNode>;
     fn children(&self) -> NodeDataChildrenIter;
-    fn process(&self, event: &InputEvent) -> bool;
     fn create_computed_values(&self) -> ComputedValues;
     fn style(&self) -> Option<Style>;
-    fn has_state(&self, key: &str) -> bool;
-    fn type_id(&self) -> TypeId;
+    fn id(&self) -> usize;
+    fn elt_type_id(&self) -> TypeId;
+    fn element_ptr(&self) -> *const ();
     fn name(&self) -> &'static str;
+    fn element(&self) -> &dyn DynElement;
+    fn has_state(&self, key: &str) -> bool {
+        false
+    }
+}
+
+impl dyn AnyNodeData {
+    pub fn downcast_element<'a, Elt>(&'a self) -> Option<&'a Elt>
+    where
+        Elt: Element,
+    {
+        if self.elt_type_id() == TypeId::of::<Elt>() {
+            Some(unsafe { std::mem::transmute::<*const (), &Elt>(self.element_ptr()) })
+        } else {
+            None
+        }
+    }
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
 where
     Elt: Element,
 {
-    fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.computed_values
-    }
-
     fn get_child(&self, index: usize) -> Option<DynamicNode> {
         self.children.get(index).map(|child| child.get_node())
     }
@@ -118,15 +114,6 @@ where
         }
     }
 
-    fn process(&self, event: &InputEvent) -> bool {
-        let mut handlers = self.handlers.borrow_mut();
-        let (sink, new_states) = self
-            .element
-            .process(self.states.get(), &mut *handlers, event);
-        self.states.set(new_states);
-        sink
-    }
-
     fn create_computed_values(&self) -> ComputedValues {
         self.element.create_computed_values()
     }
@@ -135,30 +122,38 @@ where
         self.element.style()
     }
 
-    fn has_state(&self, key: &str) -> bool {
-        self.states.get().has_state(key)
+    fn id(&self) -> usize {
+        self.id
     }
 
-    fn type_id(&self) -> TypeId {
+    fn elt_type_id(&self) -> TypeId {
         TypeId::of::<Elt>()
+    }
+
+    fn element_ptr(&self) -> *const () {
+        &self.element as *const Elt as *const ()
     }
 
     fn name(&self) -> &'static str {
         Elt::ELEMENT_NAME
     }
+
+    fn element(&self) -> &dyn DynElement {
+        &self.element
+    }
 }
 
 /// Typed handle to a DOM node.
 #[derive(Clone, Debug)]
-pub struct Node<Elt: Element>(Rc<NodeData<Elt>>);
+pub struct Node<Elt: Element>(Arc<NodeData<Elt>>);
 
 impl<Elt> Node<Elt>
 where
     Elt: Element,
 {
     /// Create a new DOM node from the given element and children vector.
-    pub fn new(element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
-        Node(Rc::new(NodeData::new(element, children)))
+    pub fn new(id: usize, element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
+        Node(Arc::new(NodeData::new(id, element, children)))
     }
 }
 
@@ -178,7 +173,7 @@ where
     Elt: Element,
 {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -259,10 +254,14 @@ impl<'a> NodeRef<'a> {
     pub fn to_owned(&self) -> AnyNode {
         self.0.to_owned()
     }
+
+    pub fn node_data(&'a self) -> &'a dyn AnyNodeData {
+        self.0.node_data()
+    }
 }
 
 #[derive(Clone, Debug)]
-pub struct AnyNode(Rc<dyn AnyNodeData>);
+pub struct AnyNode(Arc<dyn AnyNodeData>);
 
 impl<Elt> From<Node<Elt>> for AnyNode
 where
@@ -283,7 +282,7 @@ impl Deref for AnyNode {
 
 impl PartialEq for AnyNode {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 

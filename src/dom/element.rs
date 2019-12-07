@@ -1,7 +1,9 @@
-use crate::dom::input::InputEvent;
+use crate::dom::input::{ElementState, InputEvent};
 use crate::dom::node::{Node, NodeRef};
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
+use enumset::EnumSet;
+use std::any::Any;
 use std::fmt::Debug;
 
 /// Represents the attributes and behavior of a single DOM element.
@@ -9,7 +11,6 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + Debug + PartialEq;
     type Handlers: HandlerList;
-    type States: ElementStates + Clone + Copy + Default + PartialEq;
 
     const ELEMENT_NAME: &'static str;
 
@@ -18,17 +19,68 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
         Default::default()
     }
 
+    fn interactive(&self) -> bool {
+        false
+    }
+
     fn process(
         &self,
-        states: Self::States,
-        _handlers: &mut Self::Handlers,
+        states: EnumSet<ElementState>,
         _event: &InputEvent,
-    ) -> (bool, Self::States) {
-        (false, states)
+    ) -> (
+        EnumSet<ElementState>,
+        Option<<Self::Handlers as HandlerList>::Message>,
+    ) {
+        (states, None)
     }
 
     /// Returns the list of styles attached to this element.
     fn style(&self) -> Option<Style>;
+}
+
+pub trait DynElement {
+    fn create_computed_values(&self) -> ComputedValues;
+    fn interactive(&self) -> bool;
+    fn style(&self) -> Option<Style>;
+    fn name(&self) -> &str;
+    fn process(
+        &self,
+        states: EnumSet<ElementState>,
+        event: &InputEvent,
+    ) -> (EnumSet<ElementState>, Option<Box<dyn Any + Send>>);
+}
+
+impl<Elt> DynElement for Elt
+where
+    Elt: Element,
+{
+    fn create_computed_values(&self) -> ComputedValues {
+        Element::create_computed_values(self)
+    }
+
+    fn interactive(&self) -> bool {
+        Element::interactive(self)
+    }
+
+    fn style(&self) -> Option<Style> {
+        Element::style(self)
+    }
+
+    fn name(&self) -> &str {
+        Elt::ELEMENT_NAME
+    }
+
+    fn process(
+        &self,
+        states: EnumSet<ElementState>,
+        event: &InputEvent,
+    ) -> (EnumSet<ElementState>, Option<Box<dyn Any + Send>>) {
+        let (states, message) = Element::process(self, states, event);
+        (
+            states,
+            message.map(|message| Box::new(message) as Box<dyn Any + Send>),
+        )
+    }
 }
 
 /// The trait representing all events that can be invoked on an element.
@@ -54,16 +106,6 @@ where
     Attr: Attribute,
 {
     fn set_attribute(&mut self, value: Attr::Value);
-}
-
-pub trait ElementStates {
-    fn has_state(&self, name: &str) -> bool;
-}
-
-impl ElementStates for () {
-    fn has_state(&self, _name: &str) -> bool {
-        false
-    }
 }
 
 pub enum DynamicNode<'a> {
@@ -113,6 +155,14 @@ impl NodeChild for String {
     }
 }
 
-pub trait HandlerList: Default + 'static {}
+pub trait HandlerList: Default + 'static {
+    type Message: Any + Send + 'static;
 
-impl HandlerList for () {}
+    fn handle_message(&self, message: Self::Message);
+}
+
+impl HandlerList for () {
+    type Message = ();
+
+    fn handle_message(&self, _message: ()) {}
+}

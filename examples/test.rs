@@ -71,6 +71,5 @@ fn foo() -> Node<App> {
 }
 
 fn main() {
-    let runtime = moxie_native::Runtime::new(|| foo!());
-    runtime.start();
+    moxie_native::boot(|| foo!());
 }

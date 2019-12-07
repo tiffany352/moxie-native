@@ -188,9 +188,8 @@ fn calculator() -> Node<App> {
 }
 
 fn main() {
-    let runtime = moxie_native::Runtime::new(|| {
+    moxie_native::boot(|| {
         let with_state = illicit::child_env!(Key<CalcState> => state!(|| CalcState::new()));
         with_state.enter(|| calculator!())
     });
-    runtime.start();
 }

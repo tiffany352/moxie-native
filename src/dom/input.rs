@@ -11,6 +11,13 @@ pub enum State {
     Cancel,
 }
 
+#[derive(enumset::EnumSetType)]
+pub enum ElementState {
+    Hovered,
+    Pressed,
+    Focused,
+}
+
 impl InputEvent {
     pub fn get_position(&self) -> Option<(f32, f32)> {
         match self {

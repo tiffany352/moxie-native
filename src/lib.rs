@@ -36,10 +36,22 @@ mod layout;
 #[doc(hidden)]
 pub mod moxie;
 pub mod prelude;
-mod render;
 mod runtime;
 pub mod style;
 mod util;
+mod window_runtime;
 
 pub use runtime::Runtime;
 pub use util::color::Color;
+
+pub fn boot(root: impl FnMut() -> dom::Node<dom::App> + 'static + Send) {
+    let waker = runtime::RuntimeWaker::new();
+    let window_runtime = window_runtime::WindowRuntime::new();
+    let notifier = window_runtime.notifier();
+    let waker2 = waker.clone();
+    std::thread::spawn(|| {
+        let runtime = runtime::Runtime::with_waker(waker2, root);
+        runtime.start(notifier);
+    });
+    window_runtime.start(waker);
+}

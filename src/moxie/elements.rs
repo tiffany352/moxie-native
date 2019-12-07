@@ -1,7 +1,13 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
 use crate::dom::Node;
+use crate::runtime::HandlersStorage;
 use crate::util::event_handler::EventHandler;
 use moxie::*;
+use std::any::TypeId;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static NODE_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
@@ -160,21 +166,28 @@ where
 
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
+    #[illicit::from_env(handlers_storage: &Rc<HandlersStorage>)]
     pub fn build(self) -> Node<Elt> {
         let Self {
             element,
             children,
             handlers,
         } = self;
+
+        let id = once!(|| NODE_ID.fetch_add(1, Ordering::Acquire));
+
         let node = memo!((element, children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
+            id,
             elt.clone(),
             children.clone()
         ));
 
-        node.handlers().replace(handlers);
+        if TypeId::of::<Elt::Handlers>() != TypeId::of::<()>() {
+            handlers_storage.set_handlers::<Elt>(id, handlers);
+        }
 
         node
     }

@@ -61,8 +61,6 @@ macro_rules! element_handlers {
                 }
             }
         )+
-
-        impl $crate::dom::element::HandlerList for $handler_name {}
     };
 }
 

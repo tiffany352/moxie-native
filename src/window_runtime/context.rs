@@ -1,20 +1,21 @@
+use super::document::Document;
+use super::Message;
 use crate::dom::input::InputEvent;
 use crate::dom::{Node, Window};
-use crate::layout::{
-    LayoutEngine, LayoutText, LayoutTreeNode, LogicalPixel, LogicalSideOffsets, RenderData,
-};
-use crate::style::StyleEngine;
+use crate::layout::{LayoutText, LayoutTreeNode, LogicalPixel, LogicalSideOffsets, RenderData};
+use crate::runtime::RuntimeWaker;
 use crate::util::equal_rc::EqualRc;
 use gleam::gl;
 use skribo::FontRef;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc;
+use std::sync::Arc;
 use webrender::{
     api::{
-        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutPixel,
-        units::LayoutSideOffsets, BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipMode,
-        ColorF, CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
+        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutSideOffsets,
+        BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipMode, ColorF,
+        CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
         FontInstanceKey, FontKey, GlyphInstance, NormalBorder, PipelineId, PrimitiveFlags,
         RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
@@ -26,7 +27,7 @@ use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window as Win
 /// Used to wait for frames to be ready in Webrender.
 #[derive(Clone)]
 struct Notifier {
-    events_proxy: EventLoopProxy<()>,
+    events_proxy: EventLoopProxy<Message>,
     tx: mpsc::Sender<()>,
 }
 
@@ -37,7 +38,7 @@ impl RenderNotifier for Notifier {
 
     fn wake_up(&self) {
         self.tx.send(()).unwrap();
-        let _ = self.events_proxy.send_event(());
+        let _ = self.events_proxy.send_event(Message::WebrenderReady);
     }
 
     fn new_frame_ready(&self, _: DocumentId, _: bool, _: bool, _: Option<u64>) {
@@ -52,12 +53,10 @@ impl RenderNotifier for Notifier {
 /// well.
 pub struct Context {
     api: RenderApi,
-    document: DocumentId,
+    document_id: DocumentId,
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
-    layout_engine: LayoutEngine,
-    style_engine: StyleEngine,
-    window: Node<Window>,
+    document: Document,
     client_size: Size2D<i32, DevicePixel>,
     dpi_scale: f32,
     fonts: HashMap<String, FontKey>,
@@ -72,8 +71,9 @@ impl Context {
     pub fn new(
         gl: Rc<dyn gl::Gl>,
         parent_window: &WinitWindow,
-        events_proxy: EventLoopProxy<()>,
+        events_proxy: EventLoopProxy<Message>,
         window: Node<Window>,
+        waker: Arc<RuntimeWaker>,
     ) -> Context {
         let (tx, rx) = mpsc::channel();
         let notifier = Box::new(Notifier { events_proxy, tx });
@@ -96,16 +96,20 @@ impl Context {
         )
         .unwrap();
         let api = sender.create_api();
-        let document = api.add_document(client_size, 0);
+        let document_id = api.add_document(client_size, 0);
+
+        let document = Document::new(
+            window,
+            client_size.to_f32() / Scale::<f32, LogicalPixel, DevicePixel>::new(dpi_scale),
+            waker,
+        );
 
         Context {
             api,
-            document,
+            document_id,
             rx,
             renderer,
-            window,
-            layout_engine: LayoutEngine::new(),
-            style_engine: StyleEngine::new(),
+            document,
             client_size,
             dpi_scale,
             fonts: HashMap::new(),
@@ -114,14 +118,15 @@ impl Context {
     }
 
     pub fn set_dom_window(&mut self, new_node: Node<Window>) {
-        if new_node != self.window {
-            self.window = new_node;
-        }
+        self.document.set_window(new_node);
     }
 
     pub fn resize(&mut self, size: PhysicalSize, dpi_scale: f32) {
         self.client_size = size2(size.width as i32, size.height as i32);
         self.dpi_scale = dpi_scale;
+        self.document.set_size(
+            self.client_size.to_f32() / Scale::<f32, LogicalPixel, DevicePixel>::new(dpi_scale),
+        );
     }
 
     fn get_font(&mut self, font: &FontRef, txn: &mut Transaction) -> FontKey {
@@ -174,7 +179,7 @@ impl Context {
 
         match layout.render {
             RenderData::Node(ref node) => {
-                let values = node.computed_values().get().unwrap();
+                let values = self.document.get_values(node.into());
 
                 if values.border_color.alpha > 0
                     && values.border_thickness != LogicalSideOffsets::zero()
@@ -226,6 +231,8 @@ impl Context {
                     builder.push_rect(&item_props, values.background_color.into());
                 }
 
+                drop(values);
+
                 for layout in &layout.children {
                     self.render_child(
                         pipeline_id,
@@ -244,8 +251,10 @@ impl Context {
                     },
                 ref parent,
             } => {
-                let values = parent.computed_values().get().unwrap();
-                let color = values.text_color;
+                let color = {
+                    let values = self.document.get_values(parent.into());
+                    values.text_color
+                };
                 builder.push_simple_stacking_context(
                     point2(0.0, 0.0),
                     space_and_clip.spatial_id,
@@ -289,12 +298,7 @@ impl Context {
         let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
         let mut transaction = Transaction::new();
 
-        self.style_engine
-            .update(self.window.clone(), content_size * Scale::new(1.0));
-
-        let root_layout = self
-            .layout_engine
-            .layout(self.window.clone(), content_size * Scale::new(1.0));
+        let root_layout = self.document.get_layout();
 
         for layout in &root_layout.children {
             self.render_child(
@@ -310,68 +314,19 @@ impl Context {
         transaction.set_root_pipeline(pipeline_id);
         transaction.generate_frame();
         self.api.set_document_view(
-            self.document,
+            self.document_id,
             DeviceIntRect::new(Point2D::zero(), client_size.to_i32()),
             dpi_scale.get(),
         );
-        self.api.send_transaction(self.document, transaction);
+        self.api.send_transaction(self.document_id, transaction);
         self.rx.recv().unwrap();
         self.renderer.update();
         let _ = self.renderer.render(client_size.to_i32());
         let _ = self.renderer.flush_pipeline_info();
     }
 
-    pub fn process_child(
-        &self,
-        event: &InputEvent,
-        position: Point2D<f32, LogicalPixel>,
-        layout: &EqualRc<LayoutTreeNode>,
-    ) -> bool {
-        let rect = Rect::new(position, layout.size);
-
-        if let RenderData::Node(ref node) = layout.render {
-            for layout in &layout.children {
-                if self.process_child(
-                    event,
-                    position + layout.position.to_vector(),
-                    &layout.layout,
-                ) {
-                    return true;
-                }
-            }
-
-            let do_process = match event.get_position() {
-                Some((x, y)) => rect.contains(point2(x, y)),
-                None => true,
-            };
-
-            if do_process {
-                if node.process(event) {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
     pub fn process(&mut self, event: &InputEvent) -> bool {
-        let client_size = self.client_size;
-        let dpi_scale = Scale::new(self.dpi_scale);
-        let content_size: Size2D<f32, LayoutPixel> = client_size.to_f32() / dpi_scale;
-
-        self.style_engine
-            .update(self.window.clone(), content_size * Scale::new(1.0));
-
-        let root_layout = self
-            .layout_engine
-            .layout(self.window.clone(), content_size * Scale::new(1.0));
-
-        for layout in &root_layout.children {
-            if self.process_child(event, layout.position, &layout.layout) {
-                return true;
-            }
-        }
+        self.document.process(event);
 
         false
     }

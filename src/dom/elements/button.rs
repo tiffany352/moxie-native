@@ -1,8 +1,9 @@
-use crate::dom::element::{Element, ElementStates, HasEvent};
-use crate::dom::input::{InputEvent, State};
+use crate::dom::element::{Element, HandlerList, HasEvent};
+use crate::dom::input::{ElementState, InputEvent, State};
 use crate::dom::{AttrStyle, ClickEvent, Node, Span, View};
 use crate::style::Style;
 use crate::util::event_handler::EventHandler;
+use enumset::EnumSet;
 
 /// Corresponds to <button>. This element can be hovered and pressed,
 /// resulting in corresponding events.
@@ -31,18 +32,18 @@ element_handlers! {
     }
 }
 
-#[derive(Default, Clone, Copy, PartialEq)]
-pub struct ButtonStates {
-    hovered: bool,
-    pressed: bool,
+pub enum Message {
+    Click,
 }
 
-impl ElementStates for ButtonStates {
-    fn has_state(&self, name: &str) -> bool {
-        match name {
-            "hover" => self.hovered,
-            "press" => self.pressed,
-            _ => false,
+impl HandlerList for ButtonHandlers {
+    type Message = Message;
+
+    fn handle_message(&self, message: Message) {
+        match message {
+            Message::Click => {
+                self.on_click.invoke(&ClickEvent);
+            }
         }
     }
 }
@@ -50,47 +51,31 @@ impl ElementStates for ButtonStates {
 impl Element for Button {
     type Child = ButtonChild;
     type Handlers = ButtonHandlers;
-    type States = ButtonStates;
 
     const ELEMENT_NAME: &'static str = "button";
 
+    fn interactive(&self) -> bool {
+        true
+    }
+
     fn process(
         &self,
-        states: Self::States,
-        handlers: &mut Self::Handlers,
+        states: EnumSet<ElementState>,
         event: &InputEvent,
-    ) -> (bool, Self::States) {
+    ) -> (EnumSet<ElementState>, Option<Message>) {
         match event {
-            InputEvent::MouseMove { .. } => (
-                true,
-                ButtonStates {
-                    hovered: true,
-                    ..states
-                },
-            ),
+            InputEvent::MouseMove { .. } => (states | ElementState::Hovered, None),
             InputEvent::MouseLeft {
                 state: State::Begin,
                 ..
-            } => (
-                true,
-                ButtonStates {
-                    pressed: true,
-                    ..states
-                },
-            ),
+            } => (states | ElementState::Pressed, None),
             InputEvent::MouseLeft {
                 state: State::End, ..
-            } if states.pressed => {
-                handlers.on_click.invoke(&ClickEvent);
-                (
-                    true,
-                    ButtonStates {
-                        pressed: false,
-                        ..states
-                    },
-                )
-            }
-            _ => (false, states),
+            } if states.contains(ElementState::Pressed) => (
+                states.difference(ElementState::Pressed.into()),
+                Some(Message::Click),
+            ),
+            _ => (states, None),
         }
     }
 

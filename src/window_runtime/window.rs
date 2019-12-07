@@ -1,8 +1,11 @@
+use super::context::Context;
+use super::Message;
 use crate::dom::input;
 use crate::dom::{Node, Window as DomWindow};
-use crate::render::Context;
+use crate::runtime::RuntimeWaker;
 use gleam::gl;
 use glutin::{ContextBuilder, ContextWrapper, PossiblyCurrent};
+use std::sync::Arc;
 use winit::{
     dpi::LogicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
@@ -21,8 +24,9 @@ pub struct Window {
 impl Window {
     pub fn new(
         dom_window: Node<DomWindow>,
-        event_loop: &EventLoopWindowTarget<()>,
-        proxy: EventLoopProxy<()>,
+        event_loop: &EventLoopWindowTarget<Message>,
+        proxy: EventLoopProxy<Message>,
+        waker: Arc<RuntimeWaker>,
     ) -> Window {
         let window_builder = WindowBuilder::new()
             .with_title(&dom_window.element().title[..])
@@ -49,7 +53,7 @@ impl Window {
             glutin::Api::WebGl => unimplemented!(),
         };
 
-        let mut context = Context::new(gl, gl_context.window(), proxy, dom_window);
+        let mut context = Context::new(gl, gl_context.window(), proxy, dom_window, waker);
         context.render();
         gl_context.swap_buffers().unwrap();
 
@@ -108,7 +112,9 @@ impl Window {
                     x: self.cursor_pos.x as f32,
                     y: self.cursor_pos.y as f32,
                 };
-                return self.context.process(&event);
+                let result = self.context.process(&event);
+                self.context.render();
+                return result;
             }
             _ => (),
         }

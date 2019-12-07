@@ -16,7 +16,6 @@ impl Default for App {
 impl Element for App {
     type Child = Node<Window>;
     type Handlers = ();
-    type States = ();
 
     const ELEMENT_NAME: &'static str = "app";
 

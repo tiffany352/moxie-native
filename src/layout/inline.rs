@@ -6,8 +6,10 @@ use super::{
 use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{ComputedValues, DisplayType};
 use crate::util::equal_rc::EqualRc;
+use crate::window_runtime::LocalNodeStorage;
 use euclid::{point2, size2};
 use moxie::*;
+use std::rc::Rc;
 
 #[derive(PartialEq)]
 enum InlineLayoutItem {
@@ -114,6 +116,7 @@ impl LineState {
     }
 }
 
+#[illicit::from_env(local_nodes: &Rc<LocalNodeStorage>)]
 fn collect_inline_items(
     node: NodeRef,
     parent_values: &ComputedValues,
@@ -125,7 +128,7 @@ fn collect_inline_items(
             {
                 match child {
                     DynamicNode::Node(node) => {
-                        let values = node.computed_values().get().unwrap();
+                        let values = local_nodes.values(node.id());
                         match values.display {
                             DisplayType::Block(ref block) => {
                                 let layout = block::layout_block(node, &values, block, max_size).into();
