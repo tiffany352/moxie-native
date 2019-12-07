@@ -36,4 +36,8 @@ impl Element for Window {
     fn style(&self) -> Option<Style> {
         self.style
     }
+
+    fn attributes(&self) -> Vec<(&'static str, String)> {
+        vec![("title", format!("{:?}", self.title))]
+    }
 }

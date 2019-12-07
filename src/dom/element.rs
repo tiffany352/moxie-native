@@ -29,6 +29,10 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
 
     /// Returns the list of styles attached to this element.
     fn style(&self) -> Option<Style>;
+
+    fn attributes(&self) -> Vec<(&'static str, String)> {
+        vec![]
+    }
 }
 
 /// The trait representing all events that can be invoked on an element.

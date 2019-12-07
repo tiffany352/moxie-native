@@ -96,6 +96,7 @@ pub trait AnyNodeData: Debug {
     fn style(&self) -> Option<Style>;
     fn has_state(&self, key: &str) -> bool;
     fn type_id(&self) -> TypeId;
+    fn attributes(&self) -> Vec<(&'static str, String)>;
     fn name(&self) -> &'static str;
 }
 
@@ -141,6 +142,10 @@ where
 
     fn type_id(&self) -> TypeId {
         TypeId::of::<Elt>()
+    }
+
+    fn attributes(&self) -> Vec<(&'static str, String)> {
+        self.element.attributes()
     }
 
     fn name(&self) -> &'static str {

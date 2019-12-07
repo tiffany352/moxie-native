@@ -44,7 +44,12 @@ define_style! {
 }
 
 #[topo::nested]
-fn describe_node(name: &str, style: Option<Style>, has_children: bool) -> Node<Span> {
+fn describe_node(
+    name: &str,
+    style: Option<Style>,
+    attributes: Vec<(&'static str, String)>,
+    has_children: bool,
+) -> Node<Span> {
     mox! {
         <span>
             "<"
@@ -58,6 +63,13 @@ fn describe_node(name: &str, style: Option<Style>, has_children: bool) -> Node<S
                     <span style={CONTENT_STYLE}>{% "{}", style.name()}</span>
                 </span>
             })}
+            {attributes.iter().map(|(name, value)| mox! {
+                <span>
+                    <span style={ATTR_STYLE}>{% " {}", name}</span>
+                    "="
+                    <span style={CONTENT_STYLE}>{value.clone()}</span>
+                </span>
+            }).collect::<Vec<_>>()}
             {% "{}", if has_children { "" } else { " /" }}
             ">"
         </span>
@@ -70,7 +82,7 @@ fn node_view(node: NodeRef) -> Node<View> {
         if style == SENTINEL_STYLE {
             return mox! {
                 <view style={NODE_STYLE}>
-                    <describe_node _=("devtools", None, false) />
+                    <describe_node _=("devtools", None, vec![], false) />
                 </view>
             };
         }
@@ -81,7 +93,7 @@ fn node_view(node: NodeRef) -> Node<View> {
 
     mox! {
         <view style={NODE_STYLE}>
-            <describe_node _=(name, node.style(), has_children) />
+            <describe_node _=(name, node.style(), node.attributes(), has_children) />
             <view style={CHILD_STYLE}>
                 {node.children().map(|child| match child {
                     DynamicNode::Node(child) => mox! {
