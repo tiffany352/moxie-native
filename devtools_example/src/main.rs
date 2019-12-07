@@ -21,11 +21,8 @@ define_style! {
     };
 }
 
-// This attribute is used to introduce a new nesting context, which lets the
-// runtime efficiently keep track of object states over multiple renders.
 #[topo::nested]
-// This is the root component, which is expected to return an App element.
-fn my_app() -> Node<App> {
+fn counter() -> Node<View> {
     // Declare a state variable, this works kind of like a React useState() hook.
     let click_count: Key<usize> = state!(|| 0);
 
@@ -36,23 +33,33 @@ fn my_app() -> Node<App> {
         click_state.update(|count| Some(count + 1));
     };
 
+    mox! {
+        <view>
+            // Every element has a style attribute which can be used to add a style.
+            <button style={MY_STYLE} on={on_click}>
+                // Text can only inside of spans. Attributes and parent-child
+                // relationships are checked at compile time to ensure validity.
+                <span>
+                    "Click me! Total clicks: "
+                    // Formatting can be done inline using this shorthand syntax.
+                    {% "{}", click_count}
+                </span>
+            </button>
+        </view>
+    }
+}
+
+// This attribute is used to introduce a new nesting context, which lets the
+// runtime efficiently keep track of object states over multiple renders.
+#[topo::nested]
+// This is the root component, which is expected to return an App element.
+fn my_app() -> Node<App> {
     // The mox! macro lets us use nice syntax for declaring elements.
     // This acts like JSX in React.
     mox! {
         <app>
             <window title="Devtools Demo">
-                <view>
-                    // Every element has a style attribute which can be used to add a style.
-                    <button style={MY_STYLE} on={on_click}>
-                        // Text can only inside of spans. Attributes and parent-child
-                        // relationships are checked at compile time to ensure validity.
-                        <span>
-                            "Click me! Total clicks: "
-                            // Formatting can be done inline using this shorthand syntax.
-                            {% "{}", click_count}
-                        </span>
-                    </button>
-                </view>
+                <counter />
                 <devtools />
             </window>
         </app>

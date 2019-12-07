@@ -76,13 +76,78 @@ fn describe_node(
     }
 }
 
+fn massage_func_name(name: &str) -> &str {
+    let name = name.trim_end_matches("::{{closure}}");
+    let actual_name = name.split("::").last().unwrap();
+    if actual_name.starts_with("__") && actual_name.ends_with("_impl") {
+        &actual_name[2..actual_name.len() - 5]
+    } else {
+        actual_name
+    }
+}
+
+#[topo::nested]
+fn children(node: NodeRef) -> Node<View> {
+    let func = massage_func_name(node.func());
+
+    let children = node
+        .children()
+        .map(|child| match child {
+            DynamicNode::Node(child) => {
+                let child_name = massage_func_name(child.func());
+                if child_name != func {
+                    mox! {
+                        <component _=(child_name, child) />
+                    }
+                } else {
+                    mox! {
+                        <view style={VIEW}>
+                            <node_view _=(child) />
+                        </view>
+                    }
+                }
+            }
+            DynamicNode::Text(text) => mox! {
+                <view style={CONTENT_STYLE}>
+                    <span>{% "{:?}", text}</span>
+                </view>
+            },
+        })
+        .collect::<Vec<_>>();
+
+    mox! {
+        <view style={CHILD_STYLE}>
+            {children}
+        </view>
+    }
+}
+
+#[topo::nested]
+fn component(func: &'static str, contents: NodeRef) -> Node<View> {
+    mox! {
+        <view style={NODE_STYLE}>
+            <describe_node _=(func, None, vec![("_","()".to_owned())], true) />
+            <view style={CHILD_STYLE}>
+                <node_view _=(contents) />
+            </view>
+            <span>
+                "</"
+                <span style={NAME_STYLE}>
+                    {% "{}", func}
+                </span>
+                ">"
+            </span>
+        </view>
+    }
+}
+
 #[topo::nested]
 fn node_view(node: NodeRef) -> Node<View> {
     if let Some(style) = node.style() {
         if style == SENTINEL_STYLE {
             return mox! {
                 <view style={NODE_STYLE}>
-                    <describe_node _=("devtools", None, vec![], false) />
+                    <span>"..."</span>
                 </view>
             };
         }
@@ -94,20 +159,7 @@ fn node_view(node: NodeRef) -> Node<View> {
     mox! {
         <view style={NODE_STYLE}>
             <describe_node _=(name, node.style(), node.attributes(), has_children) />
-            <view style={CHILD_STYLE}>
-                {node.children().map(|child| match child {
-                    DynamicNode::Node(child) => mox! {
-                        <view style={VIEW}>
-                            <node_view _=(child) />
-                        </view>
-                    },
-                    DynamicNode::Text(text) => mox! {
-                        <view style={CONTENT_STYLE}>
-                            <span>{% "{:?}", text}</span>
-                        </view>
-                    }
-                }).collect::<Vec<_>>()}
-            </view>
+            <children _=(node) />
             {if has_children { Some(mox! {
                 <span>
                     "</"
@@ -144,7 +196,7 @@ pub fn devtools() -> Node<View> {
     if let Some(ref node) = *root {
         mox! {
             <view style={SENTINEL_STYLE}>
-                <node_view _=(node.into()) />
+                <component _=(massage_func_name(node.func()), node.into()) />
             </view>
         }
     } else {

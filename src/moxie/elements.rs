@@ -6,6 +6,7 @@ use moxie::*;
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
 pub struct Builder<Elt: Element> {
+    func: &'static str,
     element: Elt,
     handlers: Elt::Handlers,
     children: Vec<Elt::Child>,
@@ -104,8 +105,9 @@ where
     Elt: Element,
 {
     /// Creates a new builder.
-    fn new() -> Self {
+    fn new(func: &'static str) -> Self {
         Builder {
+            func,
             element: Elt::default(),
             handlers: Elt::Handlers::default(),
             children: vec![],
@@ -113,8 +115,8 @@ where
     }
 
     /// Implements the protocol used by the mox! macro to build an element.
-    pub fn create(with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
-        topo::call!({ with_elem(Self::new()) })
+    pub fn create(func: &'static str, with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
+        topo::call!({ with_elem(Self::new(func)) })
     }
 
     /// Set an attribute on the element.
@@ -162,6 +164,7 @@ where
     /// node won't necessarily always be created.
     pub fn build(self) -> Node<Elt> {
         let Self {
+            func,
             element,
             children,
             handlers,
@@ -170,6 +173,7 @@ where
             Elt,
             Vec<Elt::Child>
         )| Node::new(
+            func,
             elt.clone(),
             children.clone()
         ));
@@ -180,11 +184,23 @@ where
     }
 }
 
+#[macro_export]
+macro_rules! function {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = type_name_of(f);
+        &name[..name.len() - 3]
+    }};
+}
+
 /// The root of the DOM.
 #[macro_export]
 macro_rules! app {
     ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::App>::create($with_elem)
+        $crate::moxie::Builder::<$crate::dom::App>::create($crate::function!(), $with_elem)
     };
 }
 
@@ -192,7 +208,7 @@ macro_rules! app {
 #[macro_export]
 macro_rules! window {
     ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Window>::create($with_elem)
+        $crate::moxie::Builder::<$crate::dom::Window>::create($crate::function!(), $with_elem)
     };
 }
 
@@ -200,7 +216,7 @@ macro_rules! window {
 #[macro_export]
 macro_rules! view {
     ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::View>::create($with_elem)
+        $crate::moxie::Builder::<$crate::dom::View>::create($crate::function!(), $with_elem)
     };
 }
 
@@ -208,7 +224,7 @@ macro_rules! view {
 #[macro_export]
 macro_rules! button {
     ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Button>::create($with_elem)
+        $crate::moxie::Builder::<$crate::dom::Button>::create($crate::function!(), $with_elem)
     };
 }
 
@@ -216,6 +232,6 @@ macro_rules! button {
 #[macro_export]
 macro_rules! span {
     ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Span>::create($with_elem)
+        $crate::moxie::Builder::<$crate::dom::Span>::create($crate::function!(), $with_elem)
     };
 }

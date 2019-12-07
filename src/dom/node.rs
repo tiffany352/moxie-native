@@ -16,6 +16,7 @@ where
     handlers: RefCell<Elt::Handlers>,
     states: Cell<Elt::States>,
     computed_values: Cell<Option<ComputedValues>>,
+    func: &'static str,
     children: Vec<Elt::Child>,
 }
 
@@ -39,13 +40,14 @@ impl<Elt> NodeData<Elt>
 where
     Elt: Element,
 {
-    fn new(element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
+    fn new(func: &'static str, element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
         NodeData {
-            element: element,
             handlers: RefCell::new(Default::default()),
             states: Cell::new(Default::default()),
             computed_values: Cell::new(None),
-            children: children,
+            func,
+            element,
+            children,
         }
     }
 
@@ -98,6 +100,7 @@ pub trait AnyNodeData: Debug {
     fn type_id(&self) -> TypeId;
     fn attributes(&self) -> Vec<(&'static str, String)>;
     fn name(&self) -> &'static str;
+    fn func(&self) -> &'static str;
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
@@ -151,6 +154,10 @@ where
     fn name(&self) -> &'static str {
         Elt::ELEMENT_NAME
     }
+
+    fn func(&self) -> &'static str {
+        self.func
+    }
 }
 
 /// Typed handle to a DOM node.
@@ -162,8 +169,8 @@ where
     Elt: Element,
 {
     /// Create a new DOM node from the given element and children vector.
-    pub fn new(element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
-        Node(Rc::new(NodeData::new(element, children)))
+    pub fn new(func: &'static str, element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
+        Node(Rc::new(NodeData::new(func, element, children)))
     }
 }
 
