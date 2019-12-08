@@ -8,5 +8,7 @@ pub use crate::Color;
 pub use moxie_native_style::define_style;
 // Required for mox to work
 pub use crate::{app, button, span, text, view, window};
+pub use mox;
 // Re-export important moxie pieces
-pub use moxie::{__memo_state_impl, memo, mox, state, Key};
+pub use moxie::{__memo_state_impl, memo, state, Key};
+pub use topo;

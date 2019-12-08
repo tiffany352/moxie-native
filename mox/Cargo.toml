@@ -1,11 +1,11 @@
 [package]
-name = "mox"
+name = "moxie-native-mox"
 version = "0.2.0"
 edition = "2018"
-authors = ["Adam Perry <adam.n.perry@gmail.com>"]
+authors = ["Adam Perry <adam.n.perry@gmail.com>", "Tiffany Bennett <tiffnixen@gmail.com>"]
 license = "MIT/Apache-2.0"
-description = "Mockery Of X(ML): a JSX-like macro for moxie."
-repository = "https://github.com/anp/moxie"
+description = "Mockery Of X(ML): a JSX-like macro for moxie. This is a fork of mox tailored to the needs of moxie-native."
+repository = "https://github.com/tiffany352/moxie-native"
 
 [lib]
 proc-macro = true
