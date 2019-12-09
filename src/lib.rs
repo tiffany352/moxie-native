@@ -33,6 +33,7 @@
 pub use moxie_native_mox::mox;
 pub use moxie_native_style::define_style;
 
+mod document;
 pub mod dom;
 mod layout;
 #[doc(hidden)]
