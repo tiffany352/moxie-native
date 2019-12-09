@@ -190,6 +190,9 @@ macro_rules! app {
     ($with_elem:expr) => {
         $crate::moxie::Builder::<$crate::dom::App>::create($with_elem)
     };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::App>::create(|_e| _e.build())
+    };
 }
 
 /// Top level window.
@@ -197,6 +200,9 @@ macro_rules! app {
 macro_rules! window {
     ($with_elem:expr) => {
         $crate::moxie::Builder::<$crate::dom::Window>::create($with_elem)
+    };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::Window>::create(|_e| _e.build())
     };
 }
 
@@ -206,6 +212,9 @@ macro_rules! view {
     ($with_elem:expr) => {
         $crate::moxie::Builder::<$crate::dom::View>::create($with_elem)
     };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::View>::create(|_e| _e.build())
+    };
 }
 
 /// An interactible button.
@@ -214,6 +223,9 @@ macro_rules! button {
     ($with_elem:expr) => {
         $crate::moxie::Builder::<$crate::dom::Button>::create($with_elem)
     };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::Button>::create(|_e| _e.build())
+    };
 }
 
 /// Container for inline text.
@@ -221,5 +233,8 @@ macro_rules! button {
 macro_rules! span {
     ($with_elem:expr) => {
         $crate::moxie::Builder::<$crate::dom::Span>::create($with_elem)
+    };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::Span>::create(|_e| _e.build())
     };
 }
