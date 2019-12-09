@@ -179,6 +179,32 @@ impl Context {
             RenderData::Node(ref node) => {
                 let values = node.computed_values().get().unwrap();
 
+                if values.background_color.alpha > 0 || node.interactive() {
+                    let clip_id = if values.border_radius.get() > 0.0 {
+                        let region = ComplexClipRegion::new(
+                            rect,
+                            BorderRadius::uniform(values.border_radius.get()),
+                            ClipMode::Clip,
+                        );
+                        builder.define_clip(
+                            &SpaceAndClipInfo::root_scroll(pipeline_id),
+                            rect,
+                            vec![region],
+                            None,
+                        )
+                    } else {
+                        ClipId::root(pipeline_id)
+                    };
+                    let item_props = CommonItemProperties {
+                        clip_id,
+                        clip_rect: rect,
+                        spatial_id: SpatialId::root_scroll_node(pipeline_id),
+                        hit_info: Some((node.id(), 0)),
+                        flags: PrimitiveFlags::empty(),
+                    };
+                    builder.push_rect(&item_props, values.background_color.into());
+                }
+
                 if values.border_color.alpha > 0
                     && values.border_thickness != LogicalSideOffsets::zero()
                 {
@@ -200,33 +226,6 @@ impl Context {
                             do_aa: true,
                         }),
                     )
-                }
-
-                if values.background_color.alpha > 0 || node.interactive() {
-                    let clip_rect = rect.inner_rect(convert_offsets(values.border_thickness));
-                    let clip_id = if values.border_radius.get() > 0.0 {
-                        let region = ComplexClipRegion::new(
-                            rect,
-                            BorderRadius::uniform(values.border_radius.get()),
-                            ClipMode::Clip,
-                        );
-                        builder.define_clip(
-                            &SpaceAndClipInfo::root_scroll(pipeline_id),
-                            rect,
-                            vec![region],
-                            None,
-                        )
-                    } else {
-                        ClipId::root(pipeline_id)
-                    };
-                    let item_props = CommonItemProperties {
-                        clip_rect,
-                        clip_id,
-                        spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                        hit_info: Some((node.id(), 0)),
-                        flags: PrimitiveFlags::empty(),
-                    };
-                    builder.push_rect(&item_props, values.background_color.into());
                 }
 
                 for layout in &layout.children {
