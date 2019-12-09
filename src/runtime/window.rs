@@ -99,6 +99,9 @@ impl Window {
                 let pressed = state == ElementState::Pressed;
                 return self.context.document.mouse_button1(pressed);
             }
+            WindowEvent::CursorLeft { .. } => {
+                return self.context.document.mouse_move(None);
+            }
             _ => (),
         }
         false
