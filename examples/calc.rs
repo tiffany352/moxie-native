@@ -20,7 +20,11 @@ define_style! {
         margin: 4 px,
 
         if state: hover {
-            background_color: rgb(238, 238, 238),
+            background_color: rgb(220, 220, 220),
+        }
+
+        if state: press {
+            background_color: rgb(200, 200, 238),
         }
     };
 }

@@ -1,5 +1,4 @@
 use crate::document::Document;
-use crate::dom::input::InputEvent;
 use crate::dom::{Node, Window};
 use crate::layout::{LayoutText, LayoutTreeNode, LogicalPixel, LogicalSideOffsets, RenderData};
 use crate::util::equal_rc::EqualRc;
@@ -11,15 +10,19 @@ use std::sync::mpsc;
 use webrender::{
     api::{
         units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutSideOffsets,
-        BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipMode, ColorF,
+        BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipId, ClipMode, ColorF,
         CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
-        FontInstanceKey, FontKey, GlyphInstance, NormalBorder, PipelineId, PrimitiveFlags,
-        RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
+        FontInstanceKey, FontKey, GlyphInstance, HitTestFlags, NormalBorder, PipelineId,
+        PrimitiveFlags, RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
     euclid::{point2, size2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
 };
-use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window as WinitWindow};
+use winit::{
+    dpi::{LogicalPosition, PhysicalSize},
+    event_loop::EventLoopProxy,
+    window::Window as WinitWindow,
+};
 
 /// Used to wait for frames to be ready in Webrender.
 #[derive(Clone)]
@@ -53,7 +56,7 @@ pub struct Context {
     document_id: DocumentId,
     rx: mpsc::Receiver<()>,
     renderer: Renderer,
-    document: Document,
+    pub document: Document,
     client_size: Size2D<i32, DevicePixel>,
     dpi_scale: f32,
     fonts: HashMap<String, FontKey>,
@@ -199,29 +202,29 @@ impl Context {
                     )
                 }
 
-                if values.background_color.alpha > 0 {
-                    let rect = rect.inner_rect(convert_offsets(values.border_thickness));
-                    let item_props = if values.border_radius.get() > 0.0 {
+                if values.background_color.alpha > 0 || node.interactive() {
+                    let clip_rect = rect.inner_rect(convert_offsets(values.border_thickness));
+                    let clip_id = if values.border_radius.get() > 0.0 {
                         let region = ComplexClipRegion::new(
                             rect,
                             BorderRadius::uniform(values.border_radius.get()),
                             ClipMode::Clip,
                         );
-                        let clip = builder.define_clip(
+                        builder.define_clip(
                             &SpaceAndClipInfo::root_scroll(pipeline_id),
                             rect,
                             vec![region],
                             None,
-                        );
-                        CommonItemProperties::new(
-                            rect,
-                            SpaceAndClipInfo {
-                                spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                                clip_id: clip,
-                            },
                         )
                     } else {
-                        CommonItemProperties::new(rect, space_and_clip)
+                        ClipId::root(pipeline_id)
+                    };
+                    let item_props = CommonItemProperties {
+                        clip_rect,
+                        clip_id,
+                        spatial_id: SpatialId::root_scroll_node(pipeline_id),
+                        hit_info: Some((node.id(), 0)),
+                        flags: PrimitiveFlags::empty(),
                     };
                     builder.push_rect(&item_props, values.background_color.into());
                 }
@@ -316,7 +319,16 @@ impl Context {
         let _ = self.renderer.flush_pipeline_info();
     }
 
-    pub fn process(&mut self, event: &InputEvent) -> bool {
-        self.document.process(event)
+    pub fn element_at(&mut self, position: LogicalPosition) -> Option<u64> {
+        self.api
+            .hit_test(
+                self.document_id,
+                None,
+                point2(position.x as f32, position.y as f32),
+                HitTestFlags::empty(),
+            )
+            .items
+            .first()
+            .map(|item| item.tag.0)
     }
 }

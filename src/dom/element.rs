@@ -18,6 +18,10 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
         Default::default()
     }
 
+    fn interactive(&self) -> bool {
+        false
+    }
+
     fn process(
         &self,
         states: Self::States,
@@ -73,6 +77,15 @@ impl ElementStates for () {
 pub enum DynamicNode<'a> {
     Text(&'a str),
     Node(NodeRef<'a>),
+}
+
+impl<'a> DynamicNode<'a> {
+    pub fn node(&self) -> Option<NodeRef<'a>> {
+        match self {
+            DynamicNode::Node(node) => Some(*node),
+            DynamicNode::Text(_) => None,
+        }
+    }
 }
 
 impl<'a, Elt> From<&'a Node<Elt>> for DynamicNode<'a>

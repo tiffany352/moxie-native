@@ -1,8 +1,8 @@
 use crate::dom::devtools::DevToolsRegistry;
 use crate::dom::{App, Node};
+use crate::util::outer_join::{outer_join, Joined};
 use moxie::embed::Runtime as MoxieRuntime;
 use std::collections::HashMap;
-use std::iter;
 use winit::{
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
@@ -65,24 +65,16 @@ impl Runtime {
     fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
         let app = self.moxie_runtime.run_once();
 
-        let first_iter = app.children().iter().map(Some).chain(iter::repeat(None));
-        let second_iter = self
-            .window_ids
-            .drain(..)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(Some)
-            .chain(iter::repeat(None));
-
-        for (dom_window, window_id) in first_iter.zip(second_iter) {
-            match (dom_window, window_id) {
-                (Some(dom_window), Some(window_id)) => {
+        let window_ids = self.window_ids.drain(..).collect::<Vec<_>>();
+        for joined in outer_join(app.children(), window_ids) {
+            match joined {
+                Joined::Both(dom_window, window_id) => {
                     let window = self.windows.get_mut(&window_id).unwrap();
                     window.set_dom_window(dom_window.clone());
                     window.render();
                     self.window_ids.push(window_id);
                 }
-                (Some(dom_window), None) => {
+                Joined::Left(dom_window) => {
                     let window = window::Window::new(
                         dom_window.clone(),
                         event_loop,
@@ -92,10 +84,9 @@ impl Runtime {
                     self.windows.insert(id, window);
                     self.window_ids.push(id);
                 }
-                (None, Some(window_id)) => {
+                Joined::Right(window_id) => {
                     self.windows.remove(&window_id);
                 }
-                (None, None) => break,
             }
         }
     }

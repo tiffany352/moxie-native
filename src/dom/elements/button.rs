@@ -54,6 +54,10 @@ impl Element for Button {
 
     const ELEMENT_NAME: &'static str = "button";
 
+    fn interactive(&self) -> bool {
+        true
+    }
+
     fn process(
         &self,
         states: Self::States,
@@ -61,10 +65,19 @@ impl Element for Button {
         event: &InputEvent,
     ) -> (bool, Self::States) {
         match event {
-            InputEvent::MouseMove { .. } => (
+            InputEvent::Hovered {
+                state: State::Begin,
+            } => (
                 true,
                 ButtonStates {
                     hovered: true,
+                    ..states
+                },
+            ),
+            InputEvent::Hovered { state: State::End } => (
+                true,
+                ButtonStates {
+                    hovered: false,
                     ..states
                 },
             ),

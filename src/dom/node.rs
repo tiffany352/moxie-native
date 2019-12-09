@@ -7,11 +7,16 @@ use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+
+static PERSISTENT_ID: AtomicU64 = AtomicU64::new(0);
 
 pub struct PersistentData<Elt>
 where
     Elt: Element,
 {
+    id: u64,
     owner: RefCell<Weak<NodeData<Elt>>>,
     states: Cell<Elt::States>,
     computed_values: Cell<Option<ComputedValues>>,
@@ -23,6 +28,7 @@ where
 {
     pub fn new() -> Rc<PersistentData<Elt>> {
         Rc::new(PersistentData {
+            id: PERSISTENT_ID.fetch_add(1, Ordering::Acquire),
             owner: RefCell::new(Weak::new()),
             states: Cell::new(Default::default()),
             computed_values: Cell::new(None),
@@ -32,6 +38,7 @@ where
 
 pub trait AnyPersistent {
     fn owner(&self) -> Option<AnyNode>;
+    fn id(&self) -> u64;
 }
 
 impl<Elt> AnyPersistent for PersistentData<Elt>
@@ -44,9 +51,28 @@ where
             .upgrade()
             .map(|data| AnyNode::from(Node(data)))
     }
+
+    fn id(&self) -> u64 {
+        self.id
+    }
 }
 
+#[derive(Clone)]
 pub struct PersistentRef(Rc<dyn AnyPersistent>);
+
+impl Deref for PersistentRef {
+    type Target = dyn AnyPersistent;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl PartialEq for PersistentRef {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
 
 pub struct NodeData<Elt>
 where
@@ -139,6 +165,8 @@ pub trait AnyNodeData: Debug {
     fn attributes(&self) -> Vec<(&'static str, String)>;
     fn name(&self) -> &'static str;
     fn persistent(&self) -> PersistentRef;
+    fn id(&self) -> u64;
+    fn interactive(&self) -> bool;
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
@@ -162,11 +190,15 @@ where
 
     fn process(&self, event: &InputEvent) -> bool {
         let mut handlers = self.handlers.borrow_mut();
-        let (sink, new_states) =
+        let (_sink, new_states) =
             self.element
                 .process(self.persistent.states.get(), &mut *handlers, event);
-        self.persistent.states.set(new_states);
-        sink
+        if self.persistent.states.get() != new_states {
+            self.persistent.states.set(new_states);
+            true
+        } else {
+            false
+        }
     }
 
     fn create_computed_values(&self) -> ComputedValues {
@@ -195,6 +227,14 @@ where
 
     fn persistent(&self) -> PersistentRef {
         PersistentRef(self.persistent.clone())
+    }
+
+    fn id(&self) -> u64 {
+        self.persistent.id
+    }
+
+    fn interactive(&self) -> bool {
+        self.element.interactive()
     }
 }
 
