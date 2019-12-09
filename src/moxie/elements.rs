@@ -1,5 +1,5 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
-use crate::dom::Node;
+use crate::dom::node::{Node, PersistentData};
 use crate::util::event_handler::EventHandler;
 use moxie::*;
 
@@ -166,10 +166,14 @@ where
             children,
             handlers,
         } = self;
+
+        let persistent = once!(|| PersistentData::new());
+
         let node = memo!((element, children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
+            persistent,
             elt.clone(),
             children.clone()
         ));

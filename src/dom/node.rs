@@ -6,7 +6,47 @@ use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+
+pub struct PersistentData<Elt>
+where
+    Elt: Element,
+{
+    owner: RefCell<Weak<NodeData<Elt>>>,
+    states: Cell<Elt::States>,
+    computed_values: Cell<Option<ComputedValues>>,
+}
+
+impl<Elt> PersistentData<Elt>
+where
+    Elt: Element,
+{
+    pub fn new() -> Rc<PersistentData<Elt>> {
+        Rc::new(PersistentData {
+            owner: RefCell::new(Weak::new()),
+            states: Cell::new(Default::default()),
+            computed_values: Cell::new(None),
+        })
+    }
+}
+
+pub trait AnyPersistent {
+    fn owner(&self) -> Option<AnyNode>;
+}
+
+impl<Elt> AnyPersistent for PersistentData<Elt>
+where
+    Elt: Element,
+{
+    fn owner(&self) -> Option<AnyNode> {
+        self.owner
+            .borrow()
+            .upgrade()
+            .map(|data| AnyNode::from(Node(data)))
+    }
+}
+
+pub struct PersistentRef(Rc<dyn AnyPersistent>);
 
 pub struct NodeData<Elt>
 where
@@ -14,8 +54,7 @@ where
 {
     element: Elt,
     handlers: RefCell<Elt::Handlers>,
-    states: Cell<Elt::States>,
-    computed_values: Cell<Option<ComputedValues>>,
+    pub(crate) persistent: Rc<PersistentData<Elt>>,
     children: Vec<Elt::Child>,
 }
 
@@ -27,10 +66,8 @@ where
         let name = format!("NodeData<{}>", type_name::<Elt>());
         f.debug_struct(&name)
             .field("element", &self.element())
-            .field("computed_values", &self.computed_values)
             .field("children", &self.children)
             .field("handlers", &"...")
-            .field("states", &"...")
             .finish()
     }
 }
@@ -39,13 +76,16 @@ impl<Elt> NodeData<Elt>
 where
     Elt: Element,
 {
-    fn new(element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
+    fn new(
+        persistent: Rc<PersistentData<Elt>>,
+        element: Elt,
+        children: Vec<Elt::Child>,
+    ) -> NodeData<Elt> {
         NodeData {
-            element: element,
+            element,
+            persistent,
+            children,
             handlers: RefCell::new(Default::default()),
-            states: Cell::new(Default::default()),
-            computed_values: Cell::new(None),
-            children: children,
         }
     }
 
@@ -60,11 +100,11 @@ where
     }
 
     pub fn states(&self) -> &Cell<Elt::States> {
-        &self.states
+        &self.persistent.states
     }
 
     pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.computed_values
+        &self.persistent.computed_values
     }
 
     pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
@@ -98,6 +138,7 @@ pub trait AnyNodeData: Debug {
     fn type_id(&self) -> TypeId;
     fn attributes(&self) -> Vec<(&'static str, String)>;
     fn name(&self) -> &'static str;
+    fn persistent(&self) -> PersistentRef;
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
@@ -105,7 +146,7 @@ where
     Elt: Element,
 {
     fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.computed_values
+        &self.persistent.computed_values
     }
 
     fn get_child(&self, index: usize) -> Option<DynamicNode> {
@@ -121,10 +162,10 @@ where
 
     fn process(&self, event: &InputEvent) -> bool {
         let mut handlers = self.handlers.borrow_mut();
-        let (sink, new_states) = self
-            .element
-            .process(self.states.get(), &mut *handlers, event);
-        self.states.set(new_states);
+        let (sink, new_states) =
+            self.element
+                .process(self.persistent.states.get(), &mut *handlers, event);
+        self.persistent.states.set(new_states);
         sink
     }
 
@@ -137,7 +178,7 @@ where
     }
 
     fn has_state(&self, key: &str) -> bool {
-        self.states.get().has_state(key)
+        self.persistent.states.get().has_state(key)
     }
 
     fn type_id(&self) -> TypeId {
@@ -151,6 +192,10 @@ where
     fn name(&self) -> &'static str {
         Elt::ELEMENT_NAME
     }
+
+    fn persistent(&self) -> PersistentRef {
+        PersistentRef(self.persistent.clone())
+    }
 }
 
 /// Typed handle to a DOM node.
@@ -162,8 +207,14 @@ where
     Elt: Element,
 {
     /// Create a new DOM node from the given element and children vector.
-    pub fn new(element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
-        Node(Rc::new(NodeData::new(element, children)))
+    pub fn new(
+        persistent: Rc<PersistentData<Elt>>,
+        element: Elt,
+        children: Vec<Elt::Child>,
+    ) -> Node<Elt> {
+        let data = Rc::new(NodeData::new(persistent, element, children));
+        data.persistent.owner.replace(Rc::downgrade(&data));
+        Node(data)
     }
 }
 
