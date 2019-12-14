@@ -24,12 +24,10 @@ git = "https://github.com/anp/moxie.git"
 rev = "9657631b7d2300b834087f3b0c4dc3f840ed7c4d"
 
 [dependencies.moxie]
-git = "https://github.com/anp/moxie.git"
-rev = "9657631b7d2300b834087f3b0c4dc3f840ed7c4d"
+path = "../moxie"
 
 [dependencies.topo]
-git = "https://github.com/anp/moxie.git"
-rev = "9657631b7d2300b834087f3b0c4dc3f840ed7c4d"
+path = "../moxie/topo"
 
 [dependencies.skribo]
 git = "https://github.com/tiffany352/skribo.git"

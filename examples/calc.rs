@@ -1,3 +1,4 @@
+#![feature(track_caller)]
 #![recursion_limit = "512"]
 
 use moxie_native::prelude::*;
@@ -193,8 +194,8 @@ fn calculator() -> Node<App> {
 
 fn main() {
     let runtime = moxie_native::Runtime::new(|| {
-        let with_state = illicit::child_env!(Key<CalcState> => state!(|| CalcState::new()));
-        with_state.enter(|| calculator!())
+        let with_state = illicit::child_env!(Key<CalcState> => state(|| CalcState::new()));
+        with_state.enter(calculator)
     });
     runtime.start();
 }

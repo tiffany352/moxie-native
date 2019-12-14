@@ -1,7 +1,7 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
 use crate::dom::node::{Node, PersistentData};
 use crate::util::event_handler::EventHandler;
-use moxie::*;
+use moxie::memo::{memo, once};
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
@@ -113,32 +113,31 @@ where
     }
 
     /// Implements the protocol used by the mox! macro to build an element.
+    #[topo::nested]
     pub fn create(with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
-        topo::call!({ with_elem(Self::new()) })
+        with_elem(Self::new())
     }
 
     /// Set an attribute on the element.
+    #[topo::nested]
     pub fn attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
     where
         Attr: Attribute,
         Elt: HasAttribute<Attr>,
     {
-        topo::call!({
-            self.element.set_attribute(value.into());
-        });
+        self.element.set_attribute(value.into());
         self
     }
 
     /// Register an event handler on the element. The event type has to
     /// be supported by the element, see `HasEvent`.
+    #[topo::nested]
     pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
     where
         E: Event,
         Elt: HasEvent<E>,
     {
-        topo::call!({
-            Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
-        });
+        Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
         self
     }
 
@@ -167,9 +166,9 @@ where
             handlers,
         } = self;
 
-        let persistent = once!(|| PersistentData::new());
+        let persistent = once(|| PersistentData::new());
 
-        let node = memo!((element, children), |(elt, children): &(
+        let node = memo((element, children), |(elt, children): &(
             Elt,
             Vec<Elt::Child>
         )| Node::new(
@@ -182,59 +181,4 @@ where
 
         node
     }
-}
-
-/// The root of the DOM.
-#[macro_export]
-macro_rules! app {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::App>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::App>::create(|_e| _e.build())
-    };
-}
-
-/// Top level window.
-#[macro_export]
-macro_rules! window {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Window>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Window>::create(|_e| _e.build())
-    };
-}
-
-/// Basic flow container.
-#[macro_export]
-macro_rules! view {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::View>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::View>::create(|_e| _e.build())
-    };
-}
-
-/// An interactible button.
-#[macro_export]
-macro_rules! button {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Button>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Button>::create(|_e| _e.build())
-    };
-}
-
-/// Container for inline text.
-#[macro_export]
-macro_rules! span {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Span>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Span>::create(|_e| _e.build())
-    };
 }

@@ -8,5 +8,5 @@ macro_rules! attribute {
     };
 }
 
-attribute!(attr_style -> AttrStyle);
-attribute!(attr_title -> AttrTitle);
+attribute!(style -> AttrStyle);
+attribute!(title -> AttrTitle);

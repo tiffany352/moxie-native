@@ -1,3 +1,4 @@
+#![feature(track_caller)]
 #![recursion_limit = "256"]
 
 use moxie_native::prelude::*;
@@ -39,7 +40,7 @@ define_style! {
 
 #[topo::nested]
 fn foo() -> Node<App> {
-    let click_count: Key<u32> = state!(|| 0);
+    let click_count: Key<u32> = state(|| 0);
 
     let click_count2 = click_count.clone();
     let on_click = move |_: &ClickEvent| {
@@ -71,6 +72,6 @@ fn foo() -> Node<App> {
 }
 
 fn main() {
-    let runtime = moxie_native::Runtime::new(|| foo!());
+    let runtime = moxie_native::Runtime::new(foo);
     runtime.start();
 }

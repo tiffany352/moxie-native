@@ -3,7 +3,7 @@ use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
 use euclid::{point2, size2, vec2};
-use moxie::*;
+use moxie::memo::memo;
 
 fn calc_max_size(values: &BlockValues, parent_size: LogicalSize) -> LogicalSize {
     let mut outer = parent_size;
@@ -94,29 +94,27 @@ pub fn layout_block(
 
     let mut children = vec![];
     for child in node.children() {
-        topo::call! {
-            {
-                match child {
-                    DynamicNode::Node(node) => {
-                        let values = node.computed_values().get().unwrap();
-                        match values.display {
-                            DisplayType::Block(ref block) => {
-                                children.push(layout_block(node, &values, block, max_size));
-                            }
-                            DisplayType::Inline(_) => {
-                                children.push(inline::layout_inline(node, &values, max_size));
-                            }
+        topo::call(|| {
+            match child {
+                DynamicNode::Node(node) => {
+                    let values = node.computed_values().get().unwrap();
+                    match values.display {
+                        DisplayType::Block(ref block) => {
+                            children.push(layout_block(node, &values, block, max_size));
+                        }
+                        DisplayType::Inline(_) => {
+                            children.push(inline::layout_inline(node, &values, max_size));
                         }
                     }
-                    DynamicNode::Text(text) => {
-                        children.push(inline::layout_text(node.to_owned(), text, max_size.width, values));
-                    }
+                }
+                DynamicNode::Text(text) => {
+                    children.push(inline::layout_text(node.to_owned(), text, max_size.width, values));
                 }
             }
-        }
+        })
     }
 
-    moxie::memo!(
+    memo(
         (values.clone(), children, node.to_owned()),
         calc_block_layout
     )

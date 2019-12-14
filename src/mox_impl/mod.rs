@@ -11,21 +11,9 @@
 //! }
 //! ```
 
-mod attributes;
-mod elements;
-
-pub use attributes::*;
-pub use elements::Builder;
-
-/// Used by the mox! macro for free-standing text, which is then passed
-/// to `Builder::add_content`.
-#[doc(hidden)]
-#[macro_export]
-macro_rules! text {
-    ($s:expr) => {
-        $crate::moxie::text($s)
-    };
-}
+pub mod attributes;
+pub mod elements;
+pub mod builder;
 
 /// Text node
 pub fn text(s: impl ToString) -> String {

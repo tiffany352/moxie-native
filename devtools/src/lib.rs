@@ -1,3 +1,4 @@
+#![feature(track_caller)]
 #![recursion_limit = "512"]
 
 use moxie_native::dom::{
@@ -137,7 +138,7 @@ impl DevTools for Tools {
 
 #[topo::nested]
 pub fn devtools() -> Node<View> {
-    let root = state!(|| None);
+    let root = state(|| None);
 
     register_devtools(Tools { root: root.clone() });
 
