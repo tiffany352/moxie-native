@@ -8,8 +8,8 @@ macro_rules! define_element {
         $name:ident($class:ident)
     ) => {
         $( #[$outer] )+
-        pub fn $name(with_elem: impl FnOnce(Builder<$class>) -> Node<$class>) -> Node<$class> {
-            Builder::create(with_elem)
+        pub fn $name() -> Builder<$class> {
+            Builder::new()
         }
     };
 }

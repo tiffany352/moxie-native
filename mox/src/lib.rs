@@ -185,7 +185,7 @@ fn tag_to_tokens(
                 "can't emit function arguments at the same time as attributes or children yet"
             )
         }
-        quote!(mox_impl::elements::#name(|_e| { _e #contents .build() }))
+        quote!(mox_impl::elements::#name() #contents .build())
     };
 
     stream.extend(invocation);

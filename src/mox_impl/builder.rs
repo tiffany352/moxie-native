@@ -104,7 +104,7 @@ where
     Elt: Element,
 {
     /// Creates a new builder.
-    fn new() -> Self {
+    pub fn new() -> Self {
         Builder {
             element: Elt::default(),
             handlers: Elt::Handlers::default(),
@@ -112,14 +112,7 @@ where
         }
     }
 
-    /// Implements the protocol used by the mox! macro to build an element.
-    #[topo::nested]
-    pub fn create(with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
-        with_elem(Self::new())
-    }
-
     /// Set an attribute on the element.
-    #[topo::nested]
     pub fn attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
     where
         Attr: Attribute,
@@ -131,7 +124,6 @@ where
 
     /// Register an event handler on the element. The event type has to
     /// be supported by the element, see `HasEvent`.
-    #[topo::nested]
     pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
     where
         E: Event,
@@ -159,6 +151,7 @@ where
 
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
+    #[topo::nested]
     pub fn build(self) -> Node<Elt> {
         let Self {
             element,
