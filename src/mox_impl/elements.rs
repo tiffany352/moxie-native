@@ -1,5 +1,4 @@
 use crate::dom::{App, Window, View, Button, Span};
-use crate::dom::node::Node;
 use super::builder::Builder;
 
 macro_rules! define_element {
