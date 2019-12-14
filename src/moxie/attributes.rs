@@ -10,3 +10,4 @@ macro_rules! attribute {
 
 attribute!(attr_style -> AttrStyle);
 attribute!(attr_title -> AttrTitle);
+attribute!(attr_text_state -> AttrTextState);

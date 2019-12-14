@@ -1,6 +1,6 @@
 use crate::dom::element::{Element, ElementStates, HasEvent};
 use crate::dom::input::{InputEvent, State};
-use crate::dom::{AttrStyle, ClickEvent, Node, Span, View};
+use crate::dom::{AttrStyle, ClickEvent};
 use crate::style::Style;
 use crate::util::event_handler::EventHandler;
 
@@ -9,14 +9,6 @@ use crate::util::event_handler::EventHandler;
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct Button {
     style: Option<Style>,
-}
-
-multiple_children! {
-    enum ButtonChild {
-        Button(Node<Button>),
-        View(Node<View>),
-        Span(Node<Span>),
-    }
 }
 
 element_attributes! {
@@ -48,7 +40,7 @@ impl ElementStates for ButtonStates {
 }
 
 impl Element for Button {
-    type Child = ButtonChild;
+    type Child = super::BlockChild;
     type Handlers = ButtonHandlers;
     type States = ButtonStates;
 

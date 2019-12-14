@@ -35,6 +35,19 @@ define_style! {
         width: 10 px,
         height: 10 px,
     };
+
+    static TEXTFIELD_STYLE = {
+        border_color: rgb(160, 160, 160),
+        background_color: rgb(255, 255, 255),
+        border_radius: 4 px,
+        border_thickness: 1 px,
+        height: 30 px,
+        width: 300 px,
+
+        if state: focus {
+            border_color: rgb(160, 160, 255),
+        }
+    };
 }
 
 #[topo::nested]
@@ -62,6 +75,7 @@ fn foo() -> Node<App> {
                             "Clicked " {% "{}", click_count} " times)"
                         </span>
                     </button>
+                    <textfield style={TEXTFIELD_STYLE} />
                     <view style={VIEW1_STYLE}></view>
                     <view style={VIEW2_STYLE}></view>
                 </view>

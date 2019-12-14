@@ -228,6 +228,17 @@ macro_rules! button {
     };
 }
 
+/// A control that allows entry of text.
+#[macro_export]
+macro_rules! textfield {
+    ($with_elem:expr) => {
+        $crate::moxie::Builder::<$crate::dom::TextField>::create($with_elem)
+    };
+    () => {
+        $crate::moxie::Builder::<$crate::dom::TextField>::create(|_e| _e.build())
+    };
+}
+
 /// Container for inline text.
 #[macro_export]
 macro_rules! span {

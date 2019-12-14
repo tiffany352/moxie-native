@@ -22,6 +22,10 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
         false
     }
 
+    fn focusable(&self) -> bool {
+        false
+    }
+
     fn process(
         &self,
         states: Self::States,
@@ -29,6 +33,10 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
         _event: &InputEvent,
     ) -> (bool, Self::States) {
         (false, states)
+    }
+
+    fn content(&self) -> Option<String> {
+        None
     }
 
     /// Returns the list of styles attached to this element.
@@ -127,6 +135,15 @@ where
 impl NodeChild for String {
     fn get_node(&self) -> DynamicNode {
         DynamicNode::Text(&self[..])
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NoChildren {}
+
+impl NodeChild for NoChildren {
+    fn get_node(&self) -> DynamicNode {
+        panic!("Unreachable");
     }
 }
 

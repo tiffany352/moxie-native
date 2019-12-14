@@ -38,11 +38,12 @@ pub mod dom;
 mod layout;
 #[doc(hidden)]
 pub mod moxie;
-pub mod prelude;
 mod render;
 mod runtime;
 pub mod style;
 mod util;
+
+pub mod prelude;
 
 pub use runtime::Runtime;
 pub use topo;

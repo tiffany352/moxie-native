@@ -1,5 +1,5 @@
 use crate::dom::element::Element;
-use crate::dom::{AttrStyle, Button, Node, Span};
+use crate::dom::AttrStyle;
 use crate::style::{ComputedValues, Style};
 use crate::Color;
 
@@ -9,14 +9,6 @@ pub struct View {
     style: Option<Style>,
 }
 
-multiple_children! {
-    enum ViewChild {
-        Button(Node<Button>),
-        View(Node<View>),
-        Span(Node<Span>),
-    }
-}
-
 element_attributes! {
     View {
         style: AttrStyle,
@@ -24,7 +16,7 @@ element_attributes! {
 }
 
 impl Element for View {
-    type Child = ViewChild;
+    type Child = super::BlockChild;
     type Handlers = ();
     type States = ();
 

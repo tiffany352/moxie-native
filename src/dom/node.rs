@@ -167,6 +167,8 @@ pub trait AnyNodeData: Debug {
     fn persistent(&self) -> PersistentRef;
     fn id(&self) -> u64;
     fn interactive(&self) -> bool;
+    fn focusable(&self) -> bool;
+    fn content(&self) -> Option<String>;
 }
 
 impl<Elt> AnyNodeData for NodeData<Elt>
@@ -235,6 +237,14 @@ where
 
     fn interactive(&self) -> bool {
         self.element.interactive()
+    }
+
+    fn focusable(&self) -> bool {
+        self.element.focusable()
+    }
+
+    fn content(&self) -> Option<String> {
+        self.element.content()
     }
 }
 

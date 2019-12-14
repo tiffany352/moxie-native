@@ -4,3 +4,11 @@ use super::element::Event;
 pub struct ClickEvent;
 
 impl Event for ClickEvent {}
+
+/// Fired when the text contents of a textbox changes.
+pub struct TextEvent {
+    pub text: String,
+    pub cursor_pos: usize,
+}
+
+impl Event for TextEvent {}

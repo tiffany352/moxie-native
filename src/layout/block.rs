@@ -93,6 +93,17 @@ pub fn layout_block(
     let max_size = calc_max_size(block_values, parent_max_size);
 
     let mut children = vec![];
+
+    if let Some(text) = node.content() {
+        println!("text: {}", text);
+        children.push(inline::layout_text(
+            node.to_owned(),
+            &text[..],
+            max_size.width,
+            values,
+        ));
+    }
+
     for child in node.children() {
         topo::call! {
             {

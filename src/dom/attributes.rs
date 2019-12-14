@@ -1,3 +1,4 @@
+use super::elements::textfield::TextStateRef;
 use crate::style::Style;
 
 macro_rules! attribute {
@@ -13,3 +14,4 @@ macro_rules! attribute {
 
 attribute!(AttrStyle, Option<Style>);
 attribute!(AttrTitle, String);
+attribute!(AttrTextState, TextStateRef);

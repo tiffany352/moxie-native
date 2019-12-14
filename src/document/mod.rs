@@ -15,6 +15,7 @@ pub struct Document {
     style_engine: StyleEngine,
     hovered_node: Option<PersistentRef>,
     pressed_node: Option<PersistentRef>,
+    focused_node: Option<PersistentRef>,
     nodes_by_id: HashMap<u64, PersistentRef>,
 }
 
@@ -30,6 +31,7 @@ impl Document {
             style_engine: StyleEngine::new(),
             hovered_node: None,
             pressed_node: None,
+            focused_node: None,
         }
     }
 
@@ -120,15 +122,41 @@ impl Document {
         }
     }
 
+    pub fn insert_char(&mut self, character: char) -> bool {
+        if let Some(ref focused) = self.focused_node {
+            if let Some(owner) = focused.owner() {
+                return owner.process(&InputEvent::TextChar { character });
+            }
+        }
+        false
+    }
+
     pub fn mouse_button1(&mut self, pressed: bool) -> bool {
+        let mut state_changed = false;
+
         if let Some(ref node) = self.pressed_node {
             if let Some(owner) = node.owner() {
-                if !pressed {
-                    self.pressed_node = None;
-                }
-                return owner.process(&InputEvent::MouseLeft {
+                state_changed |= owner.process(&InputEvent::MouseLeft {
                     state: if pressed { State::Begin } else { State::End },
                 });
+                if !pressed {
+                    if owner.focusable() {
+                        self.focused_node = Some(node.clone());
+                    }
+                    state_changed |= owner.process(&InputEvent::Focused {
+                        state: State::Begin,
+                    });
+                    self.pressed_node = None;
+                }
+            }
+        }
+
+        if let Some(ref focused) = self.focused_node {
+            if Some(focused) != self.hovered_node.as_ref() {
+                if let Some(owner) = focused.owner() {
+                    state_changed |= owner.process(&InputEvent::Focused { state: State::End });
+                    self.focused_node = None;
+                }
             }
         }
 
@@ -137,12 +165,12 @@ impl Document {
                 if pressed {
                     self.pressed_node = Some(hovered.clone());
                 }
-                return owner.process(&InputEvent::MouseLeft {
+                state_changed |= owner.process(&InputEvent::MouseLeft {
                     state: if pressed { State::Begin } else { State::End },
                 });
             }
         }
 
-        false
+        state_changed
     }
 }

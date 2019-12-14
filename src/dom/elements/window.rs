@@ -1,5 +1,5 @@
 use crate::dom::element::Element;
-use crate::dom::{AttrStyle, AttrTitle, Node, View};
+use crate::dom::{AttrStyle, AttrTitle};
 use crate::style::Style;
 
 /// Corresponds to <window>. This is the top-level container for UI and
@@ -27,7 +27,7 @@ element_attributes! {
 }
 
 impl Element for Window {
-    type Child = Node<View>;
+    type Child = super::BlockChild;
     type Handlers = ();
     type States = ();
 

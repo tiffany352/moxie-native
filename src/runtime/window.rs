@@ -102,6 +102,9 @@ impl Window {
             WindowEvent::CursorLeft { .. } => {
                 return self.context.document.mouse_move(None);
             }
+            WindowEvent::ReceivedCharacter(character) => {
+                return self.context.document.insert_char(character);
+            }
             _ => (),
         }
         false

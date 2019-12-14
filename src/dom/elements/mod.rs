@@ -66,8 +66,18 @@ macro_rules! element_handlers {
     };
 }
 
+multiple_children! {
+    enum BlockChild {
+        Button(super::Node<button::Button>),
+        View(super::Node<view::View>),
+        Span(super::Node<span::Span>),
+        TextField(super::Node<textfield::TextField>),
+    }
+}
+
 pub mod app;
 pub mod button;
 pub mod span;
+pub mod textfield;
 pub mod view;
 pub mod window;
