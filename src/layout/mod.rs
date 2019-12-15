@@ -10,8 +10,8 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
-use skribo::{FontCollection, FontFamily, FontRef};
 use moxie::memo::once;
+use skribo::{FontCollection, FontFamily, FontRef};
 
 mod block;
 mod inline;

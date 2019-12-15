@@ -121,30 +121,29 @@ fn collect_inline_items(
     items: &mut Vec<InlineLayoutItem>,
 ) {
     for child in node.children() {
-        topo::call(|| {
-            match child {
-                DynamicNode::Node(node) => {
-                    let values = node.computed_values().get().unwrap();
-                    match values.display {
-                        DisplayType::Block(ref block) => {
-                            let layout = block::layout_block(node, &values, block, max_size).into();
-                            items.push(InlineLayoutItem::Block(layout));
-                        }
-                        DisplayType::Inline(_) => {
-                            collect_inline_items(node, &values, max_size, items);
-                        }
+        topo::call(|| match child {
+            DynamicNode::Node(node) => {
+                let values = node.computed_values().get().unwrap();
+                match values.display {
+                    DisplayType::Block(ref block) => {
+                        let layout = block::layout_block(node, &values, block, max_size).into();
+                        items.push(InlineLayoutItem::Block(layout));
+                    }
+                    DisplayType::Inline(_) => {
+                        collect_inline_items(node, &values, max_size, items);
                     }
                 }
-                DynamicNode::Text(text) => items.push(InlineLayoutItem::Text {
-                    text: memo((text.to_owned(), parent_values.text_size.get()), move |(text, size)| {
-                        EqualRc::new(TextLayoutInfo::new(
-                            (*text).to_owned(),
-                            *size,
-                        ))
-                    }).into(),
-                    parent: node.to_owned(),
-                })
             }
+            DynamicNode::Text(text) => items.push(InlineLayoutItem::Text {
+                text: memo(
+                    (text.to_owned(), parent_values.text_size.get()),
+                    move |(text, size)| {
+                        EqualRc::new(TextLayoutInfo::new((*text).to_owned(), *size))
+                    },
+                )
+                .into(),
+                parent: node.to_owned(),
+            }),
         })
     }
 }
@@ -205,13 +204,10 @@ pub fn layout_inline(
 
     collect_inline_items(node, values, max_size, &mut items);
 
-    memo((node.to_owned(), max_size.width, items), |(
-        node,
-        max_width,
-        items,
-    )| {
-        calc_inline_layout(node.clone(), *max_width, &items[..])
-    })
+    memo(
+        (node.to_owned(), max_size.width, items),
+        |(node, max_width, items)| calc_inline_layout(node.clone(), *max_width, &items[..]),
+    )
 }
 
 pub fn layout_text(
@@ -221,16 +217,14 @@ pub fn layout_text(
     values: &ComputedValues,
 ) -> EqualRc<LayoutTreeNode> {
     let size = values.text_size;
-    memo((max_width, text.to_owned(), node, size), |(
-        max_width,
-        text,
-        node,
-        size,
-    )| {
-        let item = InlineLayoutItem::Text {
-            text: EqualRc::new(TextLayoutInfo::new(text.to_owned(), size.get())),
-            parent: node.clone(),
-        };
-        calc_inline_layout(node.clone(), *max_width, &[item])
-    })
+    memo(
+        (max_width, text.to_owned(), node, size),
+        |(max_width, text, node, size)| {
+            let item = InlineLayoutItem::Text {
+                text: EqualRc::new(TextLayoutInfo::new(text.to_owned(), size.get())),
+                parent: node.clone(),
+            };
+            calc_inline_layout(node.clone(), *max_width, &[item])
+        },
+    )
 }

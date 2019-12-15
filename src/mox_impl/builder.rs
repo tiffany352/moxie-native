@@ -161,14 +161,12 @@ where
 
         let persistent = once(|| PersistentData::new());
 
-        let node = memo((element, children), |(elt, children): &(
-            Elt,
-            Vec<Elt::Child>
-        )| Node::new(
-            persistent,
-            elt.clone(),
-            children.clone()
-        ));
+        let node = memo(
+            (element, children),
+            |(elt, children): &(Elt, Vec<Elt::Child>)| {
+                Node::new(persistent, elt.clone(), children.clone())
+            },
+        );
 
         node.handlers().replace(handlers);
 

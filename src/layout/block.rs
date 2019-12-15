@@ -94,28 +94,31 @@ pub fn layout_block(
 
     let mut children = vec![];
     for child in node.children() {
-        topo::call(|| {
-            match child {
-                DynamicNode::Node(node) => {
-                    let values = node.computed_values().get().unwrap();
-                    match values.display {
-                        DisplayType::Block(ref block) => {
-                            children.push(layout_block(node, &values, block, max_size));
-                        }
-                        DisplayType::Inline(_) => {
-                            children.push(inline::layout_inline(node, &values, max_size));
-                        }
+        topo::call(|| match child {
+            DynamicNode::Node(node) => {
+                let values = node.computed_values().get().unwrap();
+                match values.display {
+                    DisplayType::Block(ref block) => {
+                        children.push(layout_block(node, &values, block, max_size));
+                    }
+                    DisplayType::Inline(_) => {
+                        children.push(inline::layout_inline(node, &values, max_size));
                     }
                 }
-                DynamicNode::Text(text) => {
-                    children.push(inline::layout_text(node.to_owned(), text, max_size.width, values));
-                }
+            }
+            DynamicNode::Text(text) => {
+                children.push(inline::layout_text(
+                    node.to_owned(),
+                    text,
+                    max_size.width,
+                    values,
+                ));
             }
         })
     }
 
     memo(
         (values.clone(), children, node.to_owned()),
-        calc_block_layout
+        calc_block_layout,
     )
 }

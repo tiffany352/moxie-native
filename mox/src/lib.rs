@@ -244,9 +244,7 @@ enum MoxAttr {
 impl ToTokens for MoxAttr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let stream = match self {
-            MoxAttr::Simple { name, value } => {
-                quote!(.attr(mox_impl::attributes::#name(), #value))
-            }
+            MoxAttr::Simple { name, value } => quote!(.attr(mox_impl::attributes::#name(), #value)),
             MoxAttr::Handler {
                 value: TokenTree::Group(g),
             } => {

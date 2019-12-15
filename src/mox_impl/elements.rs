@@ -1,5 +1,5 @@
-use crate::dom::{App, Window, View, Button, Span};
 use super::builder::Builder;
+use crate::dom::{App, Button, Span, View, Window};
 
 macro_rules! define_element {
     (

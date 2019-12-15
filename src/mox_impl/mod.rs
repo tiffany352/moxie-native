@@ -12,8 +12,8 @@
 //! ```
 
 pub mod attributes;
-pub mod elements;
 pub mod builder;
+pub mod elements;
 
 /// Text node
 pub fn text(s: impl ToString) -> String {
