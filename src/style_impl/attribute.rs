@@ -1,6 +1,6 @@
-use super::{keyword, types::Edges, Attribute, AttributeHasValue, Border, Length};
+use super::{keyword, types::Edges, Attribute, AttributeHasValue, Length};
 use crate::layout::{LogicalLength, LogicalSideOffsets};
-use crate::style::{ComputedValues, Direction, DisplayType};
+use crate::style::{Border, ComputedValues, Direction, DisplayType, Edges as StyleEdges};
 use crate::Color;
 
 macro_rules! define_attribute {
@@ -150,18 +150,15 @@ define_attribute! {
 define_attribute! {
     border(BorderAttr) {
         Border => |values, value| {
-            values.border_color = value.color;
-            values.border_thickness = LogicalSideOffsets::from_length_all_same(value.width.into());
-            let _ = value.style;
+            values.border = StyleEdges::new_all_same(value);
         }
         Edges<Border> => |values, value, parent| {
-            values.border_color = value.left.map(|x| x.color).unwrap_or(parent.border_color);
-            values.border_thickness = LogicalSideOffsets::from_lengths(
-                value.top.map(|b| b.width.into()).unwrap_or(LogicalLength::new(parent.border_thickness.top)),
-                value.right.map(|b| b.width.into()).unwrap_or(LogicalLength::new(parent.border_thickness.right)),
-                value.bottom.map(|b| b.width.into()).unwrap_or(LogicalLength::new(parent.border_thickness.bottom)),
-                value.left.map(|b| b.width.into()).unwrap_or(LogicalLength::new(parent.border_thickness.left))
-            );
+            values.border = StyleEdges {
+                left: value.left.unwrap_or(parent.border.left),
+                right: value.right.unwrap_or(parent.border.right),
+                top: value.top.unwrap_or(parent.border.top),
+                bottom: value.bottom.unwrap_or(parent.border.bottom),
+            };
         }
     }
 }

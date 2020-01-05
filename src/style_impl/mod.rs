@@ -1,6 +1,5 @@
 use crate::layout::{LogicalLength, LogicalSize};
 use crate::style::ComputedValues;
-use crate::Color;
 use std::ops;
 
 pub mod attribute;
@@ -65,22 +64,4 @@ pub fn view_width(value: f64) -> Length {
 #[illicit::from_env(viewport_size: &LogicalSize)]
 pub fn view_height(value: f64) -> Length {
     Length((value / 100.0 * viewport_size.height as f64 * 60.0) as isize)
-}
-
-#[derive(Copy, Clone)]
-pub enum BorderStyle {
-    Solid,
-}
-
-impl From<keyword::Solid> for BorderStyle {
-    fn from(_kw: keyword::Solid) -> BorderStyle {
-        BorderStyle::Solid
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct Border {
-    width: Length,
-    style: BorderStyle,
-    color: Color,
 }

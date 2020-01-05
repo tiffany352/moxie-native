@@ -20,6 +20,7 @@ define_style! {
         display: block,
         width: 200 px,
         height: 200 px,
+        border: border(2 px, dashed, rgb(255, 255, 255)),
     };
 
     static VIEW2_STYLE = {

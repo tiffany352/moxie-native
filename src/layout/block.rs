@@ -28,8 +28,8 @@ fn calc_block_layout(
     };
 
     let inset = point2(
-        block_values.padding.left + values.border_thickness.left,
-        block_values.padding.top + values.border_thickness.top,
+        block_values.padding.left + values.border.left.width.get(),
+        block_values.padding.top + values.border.top.width.get(),
     );
 
     let mut width = 0.0f32;
@@ -61,8 +61,8 @@ fn calc_block_layout(
         block_values.padding.vertical(),
     );
     let border = size2(
-        values.border_thickness.horizontal(),
-        values.border_thickness.vertical(),
+        values.border.left.width.get() + values.border.right.width.get(),
+        values.border.top.width.get() + values.border.bottom.width.get(),
     );
 
     let mut size = size + padding + border;

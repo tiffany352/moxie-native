@@ -1,4 +1,5 @@
-use super::{Border, BorderStyle, Length};
+use super::Length;
+use crate::style::{Border, BorderStyle};
 use crate::Color;
 
 pub fn rgb(red: f64, green: f64, blue: f64) -> Color {
@@ -10,6 +11,7 @@ pub fn rgba(red: f64, green: f64, blue: f64, alpha: f64) -> Color {
 }
 
 pub fn border(width: Length, style: impl Into<BorderStyle>, color: Color) -> Border {
+    let width = width.into();
     let style = style.into();
     Border {
         width,

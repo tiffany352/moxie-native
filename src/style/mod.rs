@@ -43,9 +43,81 @@ impl Default for BlockValues {
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
+pub(crate) enum Display {
+    Inline,
+    Block,
+}
+
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub(crate) enum DisplayType {
     Inline(InlineValues),
     Block(BlockValues),
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub(crate) struct Edges<Value> {
+    pub left: Value,
+    pub right: Value,
+    pub top: Value,
+    pub bottom: Value,
+}
+
+impl<Value> Edges<Value>
+where
+    Value: Clone,
+{
+    pub fn new_all_same(value: Value) -> Edges<Value> {
+        Edges {
+            left: value.clone(),
+            right: value.clone(),
+            top: value.clone(),
+            bottom: value,
+        }
+    }
+}
+
+impl<Value> Edges<Value> {
+    pub fn map<Output>(self, func: impl Fn(Value) -> Output) -> Edges<Output> {
+        Edges {
+            left: func(self.left),
+            right: func(self.right),
+            top: func(self.top),
+            bottom: func(self.bottom),
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum BorderStyle {
+    None,
+    Solid,
+    Double,
+    Dotted,
+    Dashed,
+    Hidden,
+    Groove,
+    Ridge,
+    Inset,
+    Outset,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Border {
+    pub width: LogicalLength,
+    pub style: BorderStyle,
+    pub color: Color,
+}
+
+impl Border {
+    pub fn visible(&self) -> bool {
+        self.width.get() > 0.0 && self.style != BorderStyle::None && self.color.alpha > 0
+    }
+}
+
+impl Edges<Border> {
+    pub fn visible(&self) -> bool {
+        self.left.visible() || self.right.visible() || self.top.visible() || self.bottom.visible()
+    }
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -54,9 +126,8 @@ pub struct ComputedValues {
     pub(crate) text_size: LogicalLength,
     pub(crate) text_color: Color,
     pub(crate) background_color: Color,
+    pub(crate) border: Edges<Border>,
     pub(crate) border_radius: LogicalLength,
-    pub(crate) border_thickness: LogicalSideOffsets,
-    pub(crate) border_color: Color,
 }
 
 impl Default for ComputedValues {
@@ -67,8 +138,11 @@ impl Default for ComputedValues {
             text_color: Color::black(),
             background_color: Color::clear(),
             border_radius: LogicalLength::new(0.0),
-            border_thickness: LogicalSideOffsets::new_all_same(0.0),
-            border_color: Color::clear(),
+            border: Edges::new_all_same(Border {
+                width: LogicalLength::new(0.0),
+                style: BorderStyle::None,
+                color: Color::clear(),
+            }),
         }
     }
 }

@@ -1,6 +1,7 @@
 use crate::document::Document;
 use crate::dom::{Node, Window};
-use crate::layout::{LayoutText, LayoutTreeNode, LogicalPixel, LogicalSideOffsets, RenderData};
+use crate::layout::{LayoutText, LayoutTreeNode, LogicalPixel, RenderData};
+use crate::style::BorderStyle as DomBorderStyle;
 use crate::util::equal_rc::EqualRc;
 use gleam::gl;
 use skribo::FontRef;
@@ -61,10 +62,6 @@ pub struct Context {
     dpi_scale: f32,
     fonts: HashMap<String, FontKey>,
     font_instances: HashMap<(FontKey, usize), FontInstanceKey>,
-}
-
-fn convert_offsets(input: LogicalSideOffsets) -> LayoutSideOffsets {
-    LayoutSideOffsets::new(input.top, input.right, input.bottom, input.left)
 }
 
 impl Context {
@@ -205,23 +202,38 @@ impl Context {
                     builder.push_rect(&item_props, values.background_color.into());
                 }
 
-                if values.border_color.alpha > 0
-                    && values.border_thickness != LogicalSideOffsets::zero()
-                {
+                if values.border.visible() {
                     let common = CommonItemProperties::new(rect, space_and_clip);
-                    let side = BorderSide {
-                        style: BorderStyle::Solid,
-                        color: values.border_color.into(),
-                    };
+                    let borders = values.border.map(|side| BorderSide {
+                        style: match side.style {
+                            DomBorderStyle::None => BorderStyle::None,
+                            DomBorderStyle::Solid => BorderStyle::Solid,
+                            DomBorderStyle::Double => BorderStyle::Double,
+                            DomBorderStyle::Dotted => BorderStyle::Dotted,
+                            DomBorderStyle::Dashed => BorderStyle::Dashed,
+                            DomBorderStyle::Hidden => BorderStyle::Hidden,
+                            DomBorderStyle::Groove => BorderStyle::Groove,
+                            DomBorderStyle::Ridge => BorderStyle::Ridge,
+                            DomBorderStyle::Inset => BorderStyle::Inset,
+                            DomBorderStyle::Outset => BorderStyle::Outset,
+                        },
+                        color: side.color.into(),
+                    });
+                    let widths = values.border.map(|side| side.width.get());
                     builder.push_border(
                         &common,
                         rect,
-                        convert_offsets(values.border_thickness),
+                        LayoutSideOffsets::new(
+                            widths.top,
+                            widths.right,
+                            widths.bottom,
+                            widths.left,
+                        ),
                         BorderDetails::Normal(NormalBorder {
-                            left: side,
-                            right: side,
-                            top: side,
-                            bottom: side,
+                            left: borders.left,
+                            right: borders.right,
+                            top: borders.top,
+                            bottom: borders.bottom,
                             radius: BorderRadius::uniform(values.border_radius.get()),
                             do_aa: true,
                         }),
