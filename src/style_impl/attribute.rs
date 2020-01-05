@@ -1,6 +1,8 @@
-use super::{keyword, types::Edges, Attribute, AttributeHasValue, Length};
+use super::{keyword, types::Corners, types::Edges, Attribute, AttributeHasValue, Length};
 use crate::layout::{LogicalLength, LogicalSideOffsets};
-use crate::style::{Border, ComputedValues, Direction, DisplayType, Edges as StyleEdges};
+use crate::style::{
+    Border, ComputedValues, Corners as StyleCorners, Direction, DisplayType, Edges as StyleEdges,
+};
 use crate::Color;
 
 macro_rules! define_attribute {
@@ -159,6 +161,22 @@ define_attribute! {
                 top: value.top.unwrap_or(parent.border.top),
                 bottom: value.bottom.unwrap_or(parent.border.bottom),
             };
+        }
+    }
+}
+
+define_attribute! {
+    corner_radius(CornerRadiusAttr) {
+        Length => |values, value| {
+            values.corner_radius = StyleCorners::new_all_same(value.into());
+        }
+        Corners<Length> => |values, value, parent| {
+            values.corner_radius = StyleCorners {
+                top_left: value.top_left.map(Into::into).unwrap_or(parent.corner_radius.top_left),
+                top_right: value.top_right.map(Into::into).unwrap_or(parent.corner_radius.top_right),
+                bottom_left: value.bottom_left.map(Into::into).unwrap_or(parent.corner_radius.bottom_left),
+                bottom_right: value.bottom_right.map(Into::into).unwrap_or(parent.corner_radius.bottom_right),
+            }
         }
     }
 }

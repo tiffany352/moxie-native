@@ -21,6 +21,10 @@ define_style! {
         width: 200 px,
         height: 200 px,
         border: border(2 px, dashed, rgb(255, 255, 255)),
+        corner_radius: Corners {
+            top_left: 20 px,
+            bottom_right: 20 px,
+        },
     };
 
     static VIEW2_STYLE = {

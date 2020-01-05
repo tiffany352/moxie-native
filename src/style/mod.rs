@@ -120,6 +120,28 @@ impl Edges<Border> {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub(crate) struct Corners<Value> {
+    pub top_left: Value,
+    pub top_right: Value,
+    pub bottom_left: Value,
+    pub bottom_right: Value,
+}
+
+impl<Value> Corners<Value>
+where
+    Value: Clone,
+{
+    pub fn new_all_same(value: Value) -> Corners<Value> {
+        Corners {
+            top_left: value.clone(),
+            top_right: value.clone(),
+            bottom_left: value.clone(),
+            bottom_right: value,
+        }
+    }
+}
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct ComputedValues {
     pub(crate) display: DisplayType,
@@ -127,7 +149,7 @@ pub struct ComputedValues {
     pub(crate) text_color: Color,
     pub(crate) background_color: Color,
     pub(crate) border: Edges<Border>,
-    pub(crate) border_radius: LogicalLength,
+    pub(crate) corner_radius: Corners<LogicalLength>,
 }
 
 impl Default for ComputedValues {
@@ -137,7 +159,7 @@ impl Default for ComputedValues {
             text_size: LogicalLength::new(16.0),
             text_color: Color::black(),
             background_color: Color::clear(),
-            border_radius: LogicalLength::new(0.0),
+            corner_radius: Corners::new_all_same(LogicalLength::new(0.0)),
             border: Edges::new_all_same(Border {
                 width: LogicalLength::new(0.0),
                 style: BorderStyle::None,

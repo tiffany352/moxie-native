@@ -176,13 +176,28 @@ impl Context {
             RenderData::Node(ref node) => {
                 let values = node.computed_values().get().unwrap();
 
+                let corner_radius = BorderRadius {
+                    top_left: size2(
+                        values.corner_radius.top_left.get(),
+                        values.corner_radius.top_left.get(),
+                    ),
+                    top_right: size2(
+                        values.corner_radius.top_right.get(),
+                        values.corner_radius.top_right.get(),
+                    ),
+                    bottom_left: size2(
+                        values.corner_radius.bottom_left.get(),
+                        values.corner_radius.bottom_left.get(),
+                    ),
+                    bottom_right: size2(
+                        values.corner_radius.bottom_right.get(),
+                        values.corner_radius.bottom_right.get(),
+                    ),
+                };
+
                 if values.background_color.alpha > 0 || node.interactive() {
-                    let clip_id = if values.border_radius.get() > 0.0 {
-                        let region = ComplexClipRegion::new(
-                            rect,
-                            BorderRadius::uniform(values.border_radius.get()),
-                            ClipMode::Clip,
-                        );
+                    let clip_id = if !corner_radius.is_zero() {
+                        let region = ComplexClipRegion::new(rect, corner_radius, ClipMode::Clip);
                         builder.define_clip(
                             &SpaceAndClipInfo::root_scroll(pipeline_id),
                             rect,
@@ -234,7 +249,7 @@ impl Context {
                             right: borders.right,
                             top: borders.top,
                             bottom: borders.bottom,
-                            radius: BorderRadius::uniform(values.border_radius.get()),
+                            radius: corner_radius,
                             do_aa: true,
                         }),
                     )
