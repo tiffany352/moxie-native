@@ -38,6 +38,8 @@ pub mod dom;
 mod layout;
 #[doc(hidden)]
 pub mod moxie;
+#[doc(hidden)]
+pub mod style_impl;
 pub mod prelude;
 mod render;
 mod runtime;

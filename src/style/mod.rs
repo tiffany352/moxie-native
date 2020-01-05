@@ -3,22 +3,18 @@ use crate::layout::{LogicalLength, LogicalSideOffsets, LogicalSize};
 use crate::Color;
 use moxie::embed::Runtime;
 
-mod attributes;
-
-pub use attributes::*;
-
 /// Specifies which direction layout should be performed in.
 #[derive(Clone, PartialEq, Copy, Debug)]
-pub enum Direction {
+pub(crate) enum Direction {
     Vertical,
     Horizontal,
 }
 
 #[derive(Default, PartialEq, Clone, Copy, Debug)]
-pub struct InlineValues {}
+pub(crate) struct InlineValues {}
 
 #[derive(PartialEq, Clone, Copy, Debug)]
-pub struct BlockValues {
+pub(crate) struct BlockValues {
     pub direction: Direction,
     pub margin: LogicalSideOffsets,
     pub padding: LogicalSideOffsets,
@@ -47,20 +43,20 @@ impl Default for BlockValues {
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
-pub enum DisplayType {
+pub(crate) enum DisplayType {
     Inline(InlineValues),
     Block(BlockValues),
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct ComputedValues {
-    pub display: DisplayType,
-    pub text_size: LogicalLength,
-    pub text_color: Color,
-    pub background_color: Color,
-    pub border_radius: LogicalLength,
-    pub border_thickness: LogicalSideOffsets,
-    pub border_color: Color,
+    pub(crate) display: DisplayType,
+    pub(crate) text_size: LogicalLength,
+    pub(crate) text_color: Color,
+    pub(crate) background_color: Color,
+    pub(crate) border_radius: LogicalLength,
+    pub(crate) border_thickness: LogicalSideOffsets,
+    pub(crate) border_color: Color,
 }
 
 impl Default for ComputedValues {
@@ -77,17 +73,29 @@ impl Default for ComputedValues {
     }
 }
 
+pub type Selector = fn(NodeRef) -> bool;
+pub type ApplyFunc = fn(&mut ComputedValues);
+pub type GetAttributes = fn() -> Vec<(&'static str, String)>;
+
+pub struct Attributes {
+    pub apply: ApplyFunc,
+    pub get_attributes: GetAttributes,
+}
+
+impl std::fmt::Debug for Attributes {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Attributes {{ ... }}")
+    }
+}
+
 pub struct SubStyle {
-    pub selector: fn(NodeRef) -> bool,
-    pub attributes: CommonAttributes,
+    pub selector: Selector,
+    pub attributes: Attributes,
 }
 
 impl std::fmt::Debug for SubStyle {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("SubStyle")
-            .field("selector", &"<fn(NodeRef) -> bool>")
-            .field("attributes", &self.attributes)
-            .finish()
+        write!(f, "SubStyle {{ ... }}")
     }
 }
 
@@ -95,7 +103,7 @@ impl std::fmt::Debug for SubStyle {
 /// selector. See `style!` for how you define this.
 #[derive(Debug)]
 pub struct StyleData {
-    pub attributes: CommonAttributes,
+    pub attributes: Attributes,
     pub sub_styles: &'static [SubStyle],
     pub name: &'static str,
     pub file: &'static str,
@@ -122,7 +130,7 @@ impl PartialEq for Style {
 }
 
 /// Used to annotate the node tree with computed values from styling.
-pub struct StyleEngine {
+pub(crate) struct StyleEngine {
     runtime: Runtime<fn()>,
 }
 
@@ -136,20 +144,27 @@ impl StyleEngine {
     fn update_style(node: NodeRef, parent: Option<&ComputedValues>) {
         let mut computed = node.create_computed_values();
 
-        if let Some(parent) = parent {
-            computed.text_size = parent.text_size;
-            computed.text_color = parent.text_color;
-        }
+        let default_values = ComputedValues::default();
+        let parent = parent.unwrap_or(&default_values);
 
-        let style = node.style();
-        if let Some(Style(style)) = style {
-            style.attributes.apply(&mut computed);
-            for sub_style in style.sub_styles {
-                if (sub_style.selector)(node) {
-                    sub_style.attributes.apply(&mut computed);
+        // Default-inherited attributes
+        computed.text_color = parent.text_color;
+        computed.text_size = parent.text_size;
+
+        illicit::child_env!(
+            ComputedValues => parent.clone()
+        )
+        .enter(|| {
+            let style = node.style();
+            if let Some(Style(style)) = style {
+                (style.attributes.apply)(&mut computed);
+                for sub_style in style.sub_styles {
+                    if (sub_style.selector)(node) {
+                        (sub_style.attributes.apply)(&mut computed);
+                    }
                 }
             }
-        }
+        });
 
         node.computed_values().set(Some(computed));
 

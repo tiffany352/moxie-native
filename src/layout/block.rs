@@ -84,7 +84,7 @@ fn calc_block_layout(
     })
 }
 
-pub fn layout_block(
+pub(crate) fn layout_block(
     node: NodeRef,
     values: &ComputedValues,
     block_values: &BlockValues,

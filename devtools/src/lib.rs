@@ -13,10 +13,13 @@ define_style! {
     };
 
     static CHILD_STYLE = {
-        padding: 10 px auto auto auto,
+        padding: Edges {
+            left: 10 px,
+        },
         background_color: rgb(255, 255, 255),
-        border_thickness: 1.0 px auto auto auto,
-        border_color: rgb(210, 210, 210),
+        border: Edges {
+            left: border(1 px, solid, rgb(210, 210, 210)),
+        },
     };
 
     static NODE_STYLE = {
