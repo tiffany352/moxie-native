@@ -96,7 +96,7 @@ fn main() {
 ## Community
 
 Discussion about moxie-native mostly happens in the moxie Discord
-server: https://discord.gg/HjdSva
+server: https://discord.gg/W4rMQZQ
 
 You can find me (Tiffany#0725) there and I'll answer any questions that
 come up.
