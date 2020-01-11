@@ -10,5 +10,5 @@ pub use moxie_native_style::define_style;
 pub use crate::{app, button, span, text, view, window};
 pub use mox;
 // Re-export important moxie pieces
-pub use moxie::{__memo_state_impl, memo, state, Key};
+pub use moxie::{state::state, state::Key};
 pub use topo;

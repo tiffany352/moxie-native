@@ -1,3 +1,4 @@
+#![feature(track_caller)]
 // Get all the types and macros needed for concise code
 use moxie_native::prelude::*;
 
@@ -26,7 +27,7 @@ define_style! {
 // This is the root component, which is expected to return an App element.
 fn my_app() -> Node<App> {
     // Declare a state variable, this works kind of like a React useState() hook.
-    let click_count: Key<usize> = state!(|| 0);
+    let click_count: Key<usize> = state(|| 0);
 
     // Clone the state so we can access it from the closure.
     let click_state = click_count.clone();
@@ -59,6 +60,6 @@ fn my_app() -> Node<App> {
 
 fn main() {
     // The entrypoint to the application is creating a runtime and starting it.
-    let runtime = moxie_native::Runtime::new(|| my_app!());
+    let runtime = moxie_native::Runtime::new(my_app);
     runtime.start();
 }

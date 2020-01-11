@@ -282,6 +282,6 @@ impl StyleEngine {
             Node<Window> => node,
             LogicalSize => size
         )
-        .enter(|| topo::call!(self.runtime.run_once()))
+        .enter(|| topo::call(|| self.runtime.run_once()))
     }
 }

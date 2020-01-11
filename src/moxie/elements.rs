@@ -1,7 +1,6 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
 use crate::dom::node::{Node, PersistentData};
 use crate::util::event_handler::EventHandler;
-use moxie::*;
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
@@ -114,7 +113,7 @@ where
 
     /// Implements the protocol used by the mox! macro to build an element.
     pub fn create(with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
-        topo::call!({ with_elem(Self::new()) })
+        topo::call(|| with_elem(Self::new()))
     }
 
     /// Set an attribute on the element.
@@ -123,7 +122,7 @@ where
         Attr: Attribute,
         Elt: HasAttribute<Attr>,
     {
-        topo::call!({
+        topo::call(|| {
             self.element.set_attribute(value.into());
         });
         self
@@ -136,7 +135,7 @@ where
         E: Event,
         Elt: HasEvent<E>,
     {
-        topo::call!({
+        topo::call(|| {
             Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
         });
         self
@@ -167,16 +166,14 @@ where
             handlers,
         } = self;
 
-        let persistent = once!(|| PersistentData::new());
+        let persistent = moxie::memo::once(|| PersistentData::new());
 
-        let node = memo!((element, children), |(elt, children): &(
-            Elt,
-            Vec<Elt::Child>
-        )| Node::new(
-            persistent,
-            elt.clone(),
-            children.clone()
-        ));
+        let node = moxie::memo::memo(
+            (element, children),
+            |(elt, children): &(Elt, Vec<Elt::Child>)| {
+                Node::new(persistent, elt.clone(), children.clone())
+            },
+        );
 
         node.handlers().replace(handlers);
 

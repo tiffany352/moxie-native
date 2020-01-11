@@ -178,7 +178,7 @@ fn tag_to_tokens(
     });
 
     let invocation = if contents.is_empty() {
-        quote!(#name!(#fn_args))
+        quote!(#name(#fn_args))
     } else {
         if fn_args.is_some() {
             unimplemented!(

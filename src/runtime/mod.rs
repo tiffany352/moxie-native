@@ -25,7 +25,7 @@ impl Runtime {
         Runtime {
             moxie_runtime: MoxieRuntime::new(Box::new(move || {
                 illicit::child_env!(DevToolsRegistry => DevToolsRegistry::new()).enter(|| {
-                    topo::call!({
+                    topo::call(|| {
                         let registry = illicit::Env::expect::<DevToolsRegistry>();
                         let app = root();
                         registry.update(app.clone().into());

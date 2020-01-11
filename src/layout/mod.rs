@@ -10,7 +10,6 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 use moxie::embed::Runtime;
-use moxie::*;
 use skribo::{FontCollection, FontFamily, FontRef};
 
 mod block;
@@ -77,7 +76,7 @@ impl LayoutEngine {
 
     #[illicit::from_env(node: &Node<Window>, size: &LogicalSize)]
     fn run_layout() -> EqualRc<LayoutTreeNode> {
-        let collection = once!(|| {
+        let collection = moxie::memo::once(|| {
             let mut collection = FontCollection::new();
             let source = SystemSource::new();
             let font = source
@@ -91,7 +90,7 @@ impl LayoutEngine {
         });
 
         illicit::child_env!(EqualRc<FontCollection> => collection).enter(|| {
-            topo::call!({
+            topo::call(|| {
                 let values = node.computed_values().get().unwrap();
                 match values.display {
                     DisplayType::Block(ref block) => {
@@ -99,7 +98,7 @@ impl LayoutEngine {
                     }
                     DisplayType::Inline(_) => inline::layout_inline(node.into(), &values, *size),
                 }
-            },)
+            })
         })
     }
 
@@ -110,6 +109,6 @@ impl LayoutEngine {
             Node<Window> => node,
             LogicalSize => size
         )
-        .enter(|| topo::call!({ self.runtime.run_once() },))
+        .enter(|| topo::call(|| self.runtime.run_once()))
     }
 }
