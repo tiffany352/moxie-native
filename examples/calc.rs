@@ -148,7 +148,7 @@ fn calc_function(message: Message) -> Node<Button> {
     };
 
     mox!(
-        <button style={BUTTON_STYLE} on={on_click}>
+        <button style={BUTTON_STYLE} on_click={on_click}>
             <span>{text}</span>
         </button>
     )

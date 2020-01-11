@@ -1,6 +1,7 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
 use crate::dom::node::{Node, PersistentData};
 use crate::util::event_handler::EventHandler;
+use std::marker::PhantomData;
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
@@ -85,6 +86,18 @@ where
     }
 }
 
+impl<Parent> IntoChildren<Parent> for Fragment<Parent>
+where
+    Parent: Element,
+{
+    type Item = Parent::Child;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_children(self) -> Self::IntoIter {
+        self.children.into_iter()
+    }
+}
+
 impl<Parent> IntoChildren<Parent> for String
 where
     Parent: Element,
@@ -98,12 +111,25 @@ where
     }
 }
 
+impl<'a, Parent> IntoChildren<Parent> for &'a str
+where
+    Parent: Element,
+    Parent::Child: From<String>,
+{
+    type Item = String;
+    type IntoIter = std::iter::Once<String>;
+
+    fn into_children(self) -> Self::IntoIter {
+        std::iter::once(self.to_owned())
+    }
+}
+
 impl<Elt> Builder<Elt>
 where
     Elt: Element,
 {
     /// Creates a new builder.
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Builder {
             element: Elt::default(),
             handlers: Elt::Handlers::default(),
@@ -111,33 +137,28 @@ where
         }
     }
 
-    /// Implements the protocol used by the mox! macro to build an element.
-    pub fn create(with_elem: impl FnOnce(Self) -> Node<Elt>) -> Node<Elt> {
-        topo::call(|| with_elem(Self::new()))
-    }
-
     /// Set an attribute on the element.
-    pub fn attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
+    pub fn set_attr<Attr>(mut self, _phantom: Attr, value: impl Into<Attr::Value>) -> Self
     where
         Attr: Attribute,
         Elt: HasAttribute<Attr>,
     {
-        topo::call(|| {
-            self.element.set_attribute(value.into());
-        });
+        self.element.set_attribute(value.into());
         self
     }
 
     /// Register an event handler on the element. The event type has to
     /// be supported by the element, see `HasEvent`.
-    pub fn on<E>(mut self, func: impl FnMut(&E) + 'static) -> Self
+    pub fn on_event<Ev>(
+        mut self,
+        _event: PhantomData<Ev>,
+        func: impl FnMut(&Ev) -> () + 'static,
+    ) -> Self
     where
-        E: Event,
-        Elt: HasEvent<E>,
+        Ev: Event,
+        Elt: HasEvent<Ev>,
     {
-        topo::call(|| {
-            Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
-        });
+        Elt::set_handler(&mut self.handlers, EventHandler::with_func(func));
         self
     }
 
@@ -149,16 +170,9 @@ where
         self
     }
 
-    /// Adds free-floating content, typically text, to the node.
-    pub fn add_content(mut self, children: impl IntoChildren<Elt>) -> Self {
-        for child in children.into_children() {
-            self.children.push(child.into());
-        }
-        self
-    }
-
     /// Build the actual node. This attempts some memoization so that a
     /// node won't necessarily always be created.
+    #[topo::nested]
     pub fn build(self) -> Node<Elt> {
         let Self {
             element,
@@ -181,57 +195,29 @@ where
     }
 }
 
-/// The root of the DOM.
-#[macro_export]
-macro_rules! app {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::App>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::App>::create(|_e| _e.build())
-    };
+pub struct Fragment<Elt>
+where
+    Elt: Element,
+{
+    children: Vec<Elt::Child>,
 }
 
-/// Top level window.
-#[macro_export]
-macro_rules! window {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Window>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Window>::create(|_e| _e.build())
-    };
-}
+impl<Elt> Fragment<Elt>
+where
+    Elt: Element,
+{
+    pub fn new() -> Fragment<Elt> {
+        Fragment { children: vec![] }
+    }
 
-/// Basic flow container.
-#[macro_export]
-macro_rules! view {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::View>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::View>::create(|_e| _e.build())
-    };
-}
+    pub fn add_child(mut self, children: impl IntoChildren<Elt>) -> Self {
+        for child in children.into_children() {
+            self.children.push(child.into());
+        }
+        self
+    }
 
-/// An interactible button.
-#[macro_export]
-macro_rules! button {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Button>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Button>::create(|_e| _e.build())
-    };
-}
-
-/// Container for inline text.
-#[macro_export]
-macro_rules! span {
-    ($with_elem:expr) => {
-        $crate::moxie::Builder::<$crate::dom::Span>::create($with_elem)
-    };
-    () => {
-        $crate::moxie::Builder::<$crate::dom::Span>::create(|_e| _e.build())
-    };
+    pub fn build(self) -> Self {
+        self
+    }
 }

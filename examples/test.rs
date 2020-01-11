@@ -63,7 +63,7 @@ fn foo() -> Node<App> {
                         "foo bar baz"
                         " the quick brown fox "<span style={H1_STYLE}>"jumps"</span><view style={SQUARE_STYLE}></view>" over the lazy dog"
                     </span>
-                    <button on={on_click} style={BUTTON_STYLE}>
+                    <button on_click={on_click} style={BUTTON_STYLE}>
                         <span>
                             "Clicked " {% "{}", click_count} " times)"
                         </span>

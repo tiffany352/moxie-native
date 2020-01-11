@@ -29,6 +29,8 @@
 //! runtime.start();
 //! ```
 
+#![feature(track_caller)]
+
 #[proc_macro_hack::proc_macro_hack(support_nested)]
 pub use moxie_native_mox::mox;
 pub use moxie_native_style::define_style;
@@ -37,13 +39,13 @@ mod document;
 pub mod dom;
 mod layout;
 #[doc(hidden)]
-pub mod moxie;
-#[doc(hidden)]
-pub mod style_impl;
+pub mod mox_impl;
 pub mod prelude;
 mod render;
 mod runtime;
 pub mod style;
+#[doc(hidden)]
+pub mod style_impl;
 mod util;
 
 pub use runtime::Runtime;

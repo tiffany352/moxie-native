@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use {
-    proc_macro2::{Delimiter, Group, Ident, TokenStream, TokenTree},
+    proc_macro2::{Delimiter, Group, Ident, Literal, TokenStream, TokenTree},
     proc_macro_error::{abort, emit_error, MacroError, ResultExt},
     quote::{quote, ToTokens},
     snax::{ParseError, SnaxAttribute, SnaxFragment, SnaxItem, SnaxSelfClosingTag, SnaxTag},
@@ -39,27 +39,27 @@ impl From<SnaxItem> for MoxItem {
 }
 
 fn wrap_content_tokens(tt: TokenTree) -> TokenTree {
-    let mut new_stream = quote!(#tt);
+    let mut result = Group::new(Delimiter::Brace, quote!(#tt)).into();
     match tt {
         TokenTree::Group(g) => {
             let mut tokens = g.stream().into_iter();
             if let Some(TokenTree::Punct(p)) = tokens.next() {
                 if p.as_char() == '%' {
                     // strip the percent sign off the front
-                    new_stream = TokenStream::new();
-                    new_stream.extend(tokens);
+                    let mut args = TokenStream::new();
+                    args.extend(tokens);
 
                     // TODO get all but the last element here too if its a %
-                    new_stream = quote!(text!(format!(#new_stream)));
+                    result = Group::new(Delimiter::Parenthesis, quote!(format!(#args))).into();
                 }
             }
         }
         tt @ TokenTree::Ident(_) | tt @ TokenTree::Literal(_) => {
-            new_stream = quote!(text!(#tt));
+            result = tt;
         }
         TokenTree::Punct(p) => emit_error!(p.span(), "'{}' not valid in item position", p),
     }
-    Group::new(Delimiter::Brace, new_stream).into()
+    result
 }
 
 impl ToTokens for MoxItem {
@@ -67,7 +67,9 @@ impl ToTokens for MoxItem {
         match self {
             MoxItem::Tag(tag) => tag.to_tokens(tokens),
             MoxItem::TagNoChildren(tag) => tag.to_tokens(tokens),
-            MoxItem::Fragment(children) => tokens.extend(quote!({ #(#children;)* })),
+            MoxItem::Fragment(children) => tokens.extend(quote!(
+                mox_impl::fragment() #( .add_child(#children) )* .build()
+            )),
             MoxItem::Content(content) => content.to_tokens(tokens),
         }
     }
@@ -114,28 +116,6 @@ fn args_and_attrs(snaxttrs: Vec<SnaxAttribute>) -> (Option<MoxArgs>, Vec<MoxAttr
     (args, snaxs.map(MoxAttr::from).collect())
 }
 
-fn item_to_child(item: &MoxItem, stream: &mut TokenStream) {
-    match item {
-        MoxItem::Tag(tag) => {
-            let ts = tag.to_token_stream();
-            stream.extend(quote!( .add_child(#ts) ));
-        }
-        MoxItem::TagNoChildren(tag) => {
-            let ts = tag.to_token_stream();
-            stream.extend(quote!( .add_child(#ts) ));
-        }
-        MoxItem::Fragment(items) => {
-            for item in items {
-                item_to_child(item, stream);
-            }
-        }
-        MoxItem::Content(tt) => {
-            let ts = tt.to_token_stream();
-            stream.extend(quote!( .add_content(#ts) ));
-        }
-    }
-}
-
 fn tag_to_tokens(
     name: &Ident,
     fn_args: &Option<MoxArgs>,
@@ -146,14 +126,14 @@ fn tag_to_tokens(
     // this needs to be nested within other token groups, must be accumulated separately from stream
     let mut contents = quote!();
 
-    attributes
-        .iter()
-        .map(ToTokens::to_token_stream)
-        .for_each(|ts| contents.extend(ts));
+    for attr in attributes {
+        attr.to_tokens(&mut contents);
+    }
 
     if let Some(items) = children {
         for item in items {
-            item_to_child(item, &mut contents);
+            let ts = item.to_token_stream();
+            contents.extend(quote!(.add_child(#ts)));
         }
     }
 
@@ -185,7 +165,7 @@ fn tag_to_tokens(
                 "can't emit function arguments at the same time as attributes or children yet"
             )
         }
-        quote!(#name!(|_e| { _e #contents .build() }))
+        quote!(mox_impl::elt::#name() #contents .build())
     };
 
     stream.extend(invocation);
@@ -238,24 +218,20 @@ struct MoxArgs {
 
 enum MoxAttr {
     Simple { name: Ident, value: TokenTree },
-    Handler { value: TokenTree },
+    Handler { name: Ident, value: TokenTree },
+    Data { name: Ident, value: TokenTree },
 }
 
 impl ToTokens for MoxAttr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let stream = match self {
-            MoxAttr::Simple { name, value } => {
-                let ident = Ident::new(&format!("attr_{}", name.to_string())[..], name.span());
-                quote!(.attr(#ident(), #value))
+            MoxAttr::Simple { name, value } => quote!(.set_attr(mox_impl::attr::#name(), #value)),
+            MoxAttr::Handler { name, value } => quote!(.on_event(mox_impl::event::#name(), #value)),
+            MoxAttr::Data { name, value } => {
+                let mut literal = Literal::string(name.to_string().as_ref());
+                literal.set_span(name.span());
+                quote!(.set_data(#literal, #value))
             }
-            MoxAttr::Handler {
-                value: TokenTree::Group(g),
-            } => {
-                // remove the braces from the event handler args, these need to "splat" into a call
-                let value = g.stream();
-                quote!(.on(#value))
-            }
-            _ => abort!("event handlers must be surrounded in braces"),
         };
 
         tokens.extend(stream);
@@ -272,8 +248,10 @@ impl From<SnaxAttribute> for MoxAttr {
                         name.span(),
                         "anonymous attributes are only allowed in the first position"
                     );
-                } else if name_str == "on" {
-                    MoxAttr::Handler { value }
+                } else if name_str.starts_with("data_") {
+                    MoxAttr::Data { name, value }
+                } else if name_str.starts_with("on_") {
+                    MoxAttr::Handler { name, value }
                 } else {
                     MoxAttr::Simple { name, value }
                 }

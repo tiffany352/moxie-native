@@ -43,7 +43,7 @@ fn my_app() -> Node<App> {
             <window title="Moxie-Native Demo">
                 <view>
                     // Every element has a style attribute which can be used to add a style.
-                    <button style={MY_STYLE} on={on_click}>
+                    <button style={MY_STYLE} on_click={on_click}>
                         // Text can only inside of spans. Attributes and parent-child
                         // relationships are checked at compile time to ensure validity.
                         <span>
