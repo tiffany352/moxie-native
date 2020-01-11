@@ -3,7 +3,6 @@ use crate::render::Context;
 use gleam::gl;
 use glutin::{ContextBuilder, ContextWrapper, PossiblyCurrent};
 use winit::{
-    dpi::LogicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Window as WinitWindow, WindowBuilder, WindowId},
@@ -14,7 +13,6 @@ use winit::{
 pub struct Window {
     gl_context: ContextWrapper<PossiblyCurrent, WinitWindow>,
     context: Context,
-    cursor_pos: LogicalPosition,
 }
 
 impl Window {
@@ -55,7 +53,6 @@ impl Window {
         Window {
             gl_context,
             context,
-            cursor_pos: LogicalPosition::new(0.0, 0.0),
         }
     }
 
@@ -77,18 +74,15 @@ impl Window {
 
     pub fn process(&mut self, event: WindowEvent) -> bool {
         match event {
-            WindowEvent::RedrawRequested => {
-                self.context.render();
-            }
             WindowEvent::Resized(size) => {
                 println!("resize {}x{}", size.width, size.height);
-                let factor = self.gl_context.window().hidpi_factor();
-                self.context.resize(size.to_physical(factor), factor as f32);
+                let factor = self.gl_context.window().scale_factor();
+                self.context.resize(size, factor as f32);
                 self.render();
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_pos = position;
-                let element = self.context.element_at(position);
+                let scale = self.gl_context.window().scale_factor();
+                let element = self.context.element_at(position.to_logical(scale));
                 return self.context.document.mouse_move(element);
             }
             WindowEvent::MouseInput {

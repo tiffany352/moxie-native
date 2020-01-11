@@ -48,6 +48,10 @@ impl Runtime {
     ) {
         let mut did_process = false;
         match event {
+            Event::RedrawRequested(window_id) => {
+                let window = self.windows.get_mut(&window_id).unwrap();
+                window.render();
+            }
             Event::WindowEvent { event, window_id } => {
                 let window = self.windows.get_mut(&window_id).unwrap();
                 let res = window.process(event);

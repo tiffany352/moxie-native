@@ -5,9 +5,9 @@ authors = ["Tiffany Bennett <tiffnixen@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-winit = "=0.20.0-alpha4"
+winit = "0.20.0"
 gleam = "0.6.2"
-glutin = "=0.22.0-alpha5"
+glutin = "0.22.0"
 scopeguard = "1"
 euclid = "0.20.3"
 slotmap = "0.4"

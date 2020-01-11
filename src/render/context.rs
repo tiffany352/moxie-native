@@ -74,8 +74,8 @@ impl Context {
         let (tx, rx) = mpsc::channel();
         let notifier = Box::new(Notifier { events_proxy, tx });
 
-        let dpi_scale = parent_window.hidpi_factor() as f32;
-        let inner_size = parent_window.inner_size().to_physical(dpi_scale as f64);
+        let dpi_scale = parent_window.scale_factor() as f32;
+        let inner_size = parent_window.inner_size();
         let client_size =
             Size2D::<i32, DevicePixel>::new(inner_size.width as i32, inner_size.height as i32);
 
@@ -116,7 +116,7 @@ impl Context {
         self.document.set_root(new_node);
     }
 
-    pub fn resize(&mut self, size: PhysicalSize, dpi_scale: f32) {
+    pub fn resize(&mut self, size: PhysicalSize<u32>, dpi_scale: f32) {
         self.client_size = size2(size.width as i32, size.height as i32);
         self.dpi_scale = dpi_scale;
         self.document.set_size(
@@ -345,7 +345,7 @@ impl Context {
         let _ = self.renderer.flush_pipeline_info();
     }
 
-    pub fn element_at(&mut self, position: LogicalPosition) -> Option<u64> {
+    pub fn element_at(&mut self, position: LogicalPosition<f32>) -> Option<u64> {
         self.api
             .hit_test(
                 self.document_id,
