@@ -30,6 +30,9 @@
 //! ```
 
 #![feature(track_caller)]
+#![deny(clippy::all)]
+// False positives
+#![allow(clippy::unnecessary_operation)]
 
 #[proc_macro_hack::proc_macro_hack(support_nested)]
 pub use moxie_native_mox::mox;
