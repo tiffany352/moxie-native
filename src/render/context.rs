@@ -81,7 +81,7 @@ impl Context {
 
         let (renderer, sender) = Renderer::new(
             gl,
-            notifier.clone(),
+            notifier,
             RendererOptions {
                 clear_color: Some(ColorF::new(1.0, 1.0, 1.0, 1.0)),
                 device_pixel_ratio: dpi_scale,

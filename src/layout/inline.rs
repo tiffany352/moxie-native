@@ -125,7 +125,7 @@ fn collect_inline_items(
                 let values = node.computed_values().get().unwrap();
                 match values.display {
                     DisplayType::Block(ref block) => {
-                        let layout = block::layout_block(node, &values, block, max_size).into();
+                        let layout = block::layout_block(node, &values, block, max_size);
                         items.push(InlineLayoutItem::Block(layout));
                     }
                     DisplayType::Inline(_) => {
@@ -139,8 +139,7 @@ fn collect_inline_items(
                     move |(text, size)| {
                         EqualRc::new(TextLayoutInfo::new((*text).to_owned(), *size))
                     },
-                )
-                .into(),
+                ),
                 parent: node.to_owned(),
             }),
         })
@@ -163,10 +162,10 @@ fn calc_inline_layout(
     for item in items {
         match item {
             InlineLayoutItem::Block(layout) => {
-                if !line.insert_block_item(layout.clone().into()) {
+                if !line.insert_block_item(layout.clone()) {
                     let old_line = std::mem::replace(&mut line, LineState::new(max_width));
                     state.add_line(old_line);
-                    line.insert_block_item(layout.clone().into());
+                    line.insert_block_item(layout.clone());
                 }
             }
             InlineLayoutItem::Text { text, parent } => {

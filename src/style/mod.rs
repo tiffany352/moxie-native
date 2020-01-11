@@ -210,11 +210,11 @@ pub struct StyleData {
 pub struct Style(pub &'static StyleData);
 
 impl Style {
-    pub fn name(&self) -> &'static str {
+    pub fn name(self) -> &'static str {
         self.0.name
     }
 
-    pub fn file(&self) -> (&'static str, u32) {
+    pub fn file(self) -> (&'static str, u32) {
         (self.0.file, self.0.line)
     }
 }

@@ -1,3 +1,4 @@
+#[derive(Default)]
 pub struct Edges<Value> {
     pub left: Option<Value>,
     pub right: Option<Value>,
@@ -40,6 +41,7 @@ impl<Value> Edges<Value> {
     }
 }
 
+#[derive(Default)]
 pub struct Corners<Value> {
     pub top_left: Option<Value>,
     pub top_right: Option<Value>,

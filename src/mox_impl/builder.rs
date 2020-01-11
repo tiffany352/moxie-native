@@ -180,7 +180,7 @@ where
             handlers,
         } = self;
 
-        let persistent = moxie::memo::once(|| PersistentData::new());
+        let persistent = moxie::memo::once(PersistentData::new);
 
         let node = moxie::memo::memo(
             (element, children),
@@ -195,6 +195,7 @@ where
     }
 }
 
+#[derive(Default)]
 pub struct Fragment<Elt>
 where
     Elt: Element,

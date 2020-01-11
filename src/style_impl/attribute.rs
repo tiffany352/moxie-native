@@ -114,10 +114,10 @@ define_attribute! {
                     LogicalSideOffsets::default()
                 };
                 block.padding = LogicalSideOffsets::from_lengths(
-                    value.top.map(Into::into).unwrap_or(LogicalLength::new(parent_values.left)),
-                    value.right.map(Into::into).unwrap_or(LogicalLength::new(parent_values.right)),
-                    value.bottom.map(Into::into).unwrap_or(LogicalLength::new(parent_values.bottom)),
-                    value.left.map(Into::into).unwrap_or(LogicalLength::new(parent_values.left)),
+                    value.top.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.left)),
+                    value.right.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.right)),
+                    value.bottom.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.bottom)),
+                    value.left.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.left)),
                 );
             }
         }
@@ -139,10 +139,10 @@ define_attribute! {
                     LogicalSideOffsets::default()
                 };
                 block.margin = LogicalSideOffsets::from_lengths(
-                    value.top.map(Into::into).unwrap_or(LogicalLength::new(parent_values.left)),
-                    value.right.map(Into::into).unwrap_or(LogicalLength::new(parent_values.right)),
-                    value.bottom.map(Into::into).unwrap_or(LogicalLength::new(parent_values.bottom)),
-                    value.left.map(Into::into).unwrap_or(LogicalLength::new(parent_values.left)),
+                    value.top.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.left)),
+                    value.right.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.right)),
+                    value.bottom.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.bottom)),
+                    value.left.map(Into::into).unwrap_or_else(|| LogicalLength::new(parent_values.left)),
                 );
             }
         }

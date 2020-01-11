@@ -116,8 +116,5 @@ pub(crate) fn layout_block(
         })
     }
 
-    moxie::memo::memo(
-        (values.clone(), children, node.to_owned()),
-        calc_block_layout,
-    )
+    moxie::memo::memo((*values, children, node.to_owned()), calc_block_layout)
 }
