@@ -61,10 +61,12 @@ pub struct LayoutTreeNode {
     pub children: Vec<LayoutChild>,
 }
 
+type RunLayoutFunc = fn(()) -> EqualRc<LayoutTreeNode>;
+
 /// Used to build the layout tree, with internal caching for
 /// performance.
 pub struct LayoutEngine {
-    runtime: Runtime<fn() -> EqualRc<LayoutTreeNode>>,
+    runtime: Runtime<RunLayoutFunc, (), EqualRc<LayoutTreeNode>>,
 }
 
 impl LayoutEngine {
@@ -75,7 +77,7 @@ impl LayoutEngine {
     }
 
     #[illicit::from_env(node: &Node<Window>, size: &LogicalSize)]
-    fn run_layout() -> EqualRc<LayoutTreeNode> {
+    fn run_layout(_: ()) -> EqualRc<LayoutTreeNode> {
         let collection = moxie::memo::once(|| {
             let mut collection = FontCollection::new();
             let source = SystemSource::new();
@@ -109,6 +111,6 @@ impl LayoutEngine {
             Node<Window> => node,
             LogicalSize => size
         )
-        .enter(|| topo::call(|| self.runtime.run_once()))
+        .enter(|| topo::call(|| self.runtime.run_once(())))
     }
 }

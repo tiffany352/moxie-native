@@ -227,7 +227,7 @@ impl PartialEq for Style {
 
 /// Used to annotate the node tree with computed values from styling.
 pub(crate) struct StyleEngine {
-    runtime: Runtime<fn()>,
+    runtime: Runtime<fn(()), (), ()>,
 }
 
 impl StyleEngine {
@@ -272,7 +272,7 @@ impl StyleEngine {
     }
 
     #[illicit::from_env(node: &Node<Window>)]
-    fn run_styling() {
+    fn run_styling(_: ()) {
         Self::update_style(node.into(), None);
     }
 
@@ -282,6 +282,6 @@ impl StyleEngine {
             Node<Window> => node,
             LogicalSize => size
         )
-        .enter(|| topo::call(|| self.runtime.run_once()))
+        .enter(|| topo::call(|| self.runtime.run_once(())))
     }
 }
