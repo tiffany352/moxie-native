@@ -40,6 +40,7 @@ pub fn outer_join<Left, Right>(
     OuterJoin { left, right }
 }
 
+#[allow(dead_code)]
 pub fn outer_join_filter<Left, Right>(
     left: impl IntoIterator<Item = Option<Left>>,
     right: impl IntoIterator<Item = Option<Right>>,
