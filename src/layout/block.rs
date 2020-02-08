@@ -1,4 +1,5 @@
 use super::{inline, LayoutChild, LayoutTreeNode, LogicalSize, RenderData};
+use crate::document::DocumentState;
 use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{BlockValues, ComputedValues, Direction, DisplayType};
 use crate::util::equal_rc::EqualRc;
@@ -84,6 +85,7 @@ fn calc_block_layout(
 }
 
 pub(crate) fn layout_block(
+    state: &mut DocumentState,
     node: NodeRef,
     values: &ComputedValues,
     block_values: &BlockValues,
@@ -95,13 +97,13 @@ pub(crate) fn layout_block(
     for child in node.children() {
         topo::call(|| match child {
             DynamicNode::Node(node) => {
-                let values = node.computed_values().get().unwrap();
+                let values = *state.computed_values(node.id());
                 match values.display {
                     DisplayType::Block(ref block) => {
-                        children.push(layout_block(node, &values, block, max_size));
+                        children.push(layout_block(state, node, &values, block, max_size));
                     }
                     DisplayType::Inline(_) => {
-                        children.push(inline::layout_inline(node, &values, max_size));
+                        children.push(inline::layout_inline(state, node, &values, max_size));
                     }
                 }
             }

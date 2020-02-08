@@ -1,7 +1,6 @@
-use crate::dom::{element::DynamicNode, node::NodeRef, Node, Window};
-use crate::layout::{LogicalLength, LogicalSideOffsets, LogicalSize};
+use crate::dom::node::NodeRef;
+use crate::layout::{LogicalLength, LogicalSideOffsets};
 use crate::Color;
-use moxie::embed::Runtime;
 
 /// Specifies which direction layout should be performed in.
 #[derive(Clone, PartialEq, Copy, Debug)]
@@ -222,66 +221,5 @@ impl Style {
 impl PartialEq for Style {
     fn eq(&self, other: &Style) -> bool {
         std::ptr::eq(self.0 as *const StyleData, other.0 as *const StyleData)
-    }
-}
-
-/// Used to annotate the node tree with computed values from styling.
-pub(crate) struct StyleEngine {
-    runtime: Runtime<fn(()), (), ()>,
-}
-
-impl StyleEngine {
-    pub fn new() -> StyleEngine {
-        StyleEngine {
-            runtime: Runtime::new(StyleEngine::run_styling),
-        }
-    }
-
-    fn update_style(node: NodeRef, parent: Option<&ComputedValues>) {
-        let mut computed = node.create_computed_values();
-
-        let default_values = ComputedValues::default();
-        let parent = parent.unwrap_or(&default_values);
-
-        // Default-inherited attributes
-        computed.text_color = parent.text_color;
-        computed.text_size = parent.text_size;
-
-        illicit::child_env!(
-            ComputedValues => parent.clone()
-        )
-        .enter(|| {
-            let style = node.style();
-            if let Some(Style(style)) = style {
-                (style.attributes.apply)(&mut computed);
-                for sub_style in style.sub_styles {
-                    if (sub_style.selector)(node) {
-                        (sub_style.attributes.apply)(&mut computed);
-                    }
-                }
-            }
-        });
-
-        node.computed_values().set(Some(computed));
-
-        for child in node.children() {
-            if let DynamicNode::Node(node) = child {
-                Self::update_style(node, Some(&computed));
-            }
-        }
-    }
-
-    #[illicit::from_env(node: &Node<Window>)]
-    fn run_styling(_: ()) {
-        Self::update_style(node.into(), None);
-    }
-
-    /// Update the node tree with computed values.
-    pub fn update(&mut self, node: Node<Window>, size: LogicalSize) {
-        illicit::child_env!(
-            Node<Window> => node,
-            LogicalSize => size
-        )
-        .enter(|| topo::call(|| self.runtime.run_once(())))
     }
 }

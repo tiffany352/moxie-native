@@ -2,6 +2,7 @@ use crate::dom::input::InputEvent;
 use crate::dom::node::{Node, NodeRef};
 use crate::style::{ComputedValues, Style};
 use crate::util::event_handler::EventHandler;
+use enumset::{EnumSet, EnumSetType};
 use std::fmt::Debug;
 
 /// Represents the attributes and behavior of a single DOM element.
@@ -9,7 +10,6 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
     /// The type of children that can be parented to this element.
     type Child: NodeChild + Clone + Debug + PartialEq;
     type Handlers: HandlerList;
-    type States: ElementStates + Clone + Copy + Default + PartialEq;
 
     const ELEMENT_NAME: &'static str;
 
@@ -24,10 +24,10 @@ pub trait Element: Default + Clone + Debug + PartialEq + 'static {
 
     fn process(
         &self,
-        states: Self::States,
+        states: ElementStates,
         _handlers: &mut Self::Handlers,
         _event: &InputEvent,
-    ) -> (bool, Self::States) {
+    ) -> (bool, ElementStates) {
         (false, states)
     }
 
@@ -64,15 +64,13 @@ where
     fn set_attribute(&mut self, value: Attr::Value);
 }
 
-pub trait ElementStates {
-    fn has_state(&self, name: &str) -> bool;
+#[derive(EnumSetType)]
+pub enum ElementState {
+    Hover,
+    Press,
 }
 
-impl ElementStates for () {
-    fn has_state(&self, _name: &str) -> bool {
-        false
-    }
-}
+pub type ElementStates = EnumSet<ElementState>;
 
 pub enum DynamicNode<'a> {
     Text(&'a str),

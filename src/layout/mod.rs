@@ -1,8 +1,8 @@
 //! This module handles creating the layout tree, which includes
 //! arranging elements and performing text layout.
 
-use crate::dom::node::AnyNode;
-use crate::dom::{Node, Window};
+use crate::document::DocumentState;
+use crate::dom::node::{AnyNode, AnyNodeData};
 use crate::style::DisplayType;
 use crate::util::equal_rc::EqualRc;
 use euclid::{Length, Point2D, SideOffsets2D, Size2D};
@@ -61,56 +61,53 @@ pub struct LayoutTreeNode {
     pub children: Vec<LayoutChild>,
 }
 
-type RunLayoutFunc = fn(()) -> EqualRc<LayoutTreeNode>;
-
 /// Used to build the layout tree, with internal caching for
 /// performance.
 pub struct LayoutEngine {
-    runtime: Runtime<RunLayoutFunc, (), EqualRc<LayoutTreeNode>>,
+    runtime: Runtime,
+    collection: EqualRc<FontCollection>,
 }
 
 impl LayoutEngine {
     pub fn new() -> LayoutEngine {
+        let mut collection = FontCollection::new();
+        let source = SystemSource::new();
+        let font = source
+            .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+            .unwrap()
+            .load()
+            .unwrap();
+        collection.add_family(FontFamily::new_from_font(font));
+
         LayoutEngine {
-            runtime: Runtime::new(LayoutEngine::run_layout),
+            runtime: Runtime::new(),
+            collection: EqualRc::new(collection),
         }
-    }
-
-    #[illicit::from_env(node: &Node<Window>, size: &LogicalSize)]
-    fn run_layout(_: ()) -> EqualRc<LayoutTreeNode> {
-        let collection = moxie::memo::once(|| {
-            let mut collection = FontCollection::new();
-            let source = SystemSource::new();
-            let font = source
-                .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-                .unwrap()
-                .load()
-                .unwrap();
-            collection.add_family(FontFamily::new_from_font(font));
-
-            EqualRc::new(collection)
-        });
-
-        illicit::child_env!(EqualRc<FontCollection> => collection).enter(|| {
-            topo::call(|| {
-                let values = node.computed_values().get().unwrap();
-                match values.display {
-                    DisplayType::Block(ref block) => {
-                        block::layout_block(node.into(), &values, block, *size)
-                    }
-                    DisplayType::Inline(_) => inline::layout_inline(node.into(), &values, *size),
-                }
-            })
-        })
     }
 
     /// Perform a layout step based on the new DOM and content size, and
     /// return a fresh layout tree.
-    pub fn layout(&mut self, node: Node<Window>, size: LogicalSize) -> EqualRc<LayoutTreeNode> {
+    pub(crate) fn layout(&mut self, state: &mut DocumentState) -> EqualRc<LayoutTreeNode> {
         illicit::child_env! (
-            Node<Window> => node,
-            LogicalSize => size
+            EqualRc<FontCollection> => self.collection.clone()
         )
-        .enter(|| topo::call(|| self.runtime.run_once(())))
+        .enter(move || {
+            self.runtime.run_once(move || {
+                let node = state.window.clone();
+                let values = *state.computed_values(node.id());
+                match values.display {
+                    DisplayType::Block(ref block) => block::layout_block(
+                        state,
+                        (&node).into(),
+                        &values,
+                        block,
+                        state.content_size,
+                    ),
+                    DisplayType::Inline(_) => {
+                        inline::layout_inline(state, (&node).into(), &values, state.content_size)
+                    }
+                }
+            })
+        })
     }
 }

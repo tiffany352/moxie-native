@@ -2,85 +2,19 @@ use crate::dom::element::{DynamicNode, Element, ElementStates, NodeChild};
 use crate::dom::input::InputEvent;
 use crate::style::{ComputedValues, Style};
 use std::any::{type_name, TypeId};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::{Rc, Weak};
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-
-static PERSISTENT_ID: AtomicU64 = AtomicU64::new(0);
-
-pub struct PersistentData<Elt>
-where
-    Elt: Element,
-{
-    id: u64,
-    owner: RefCell<Weak<NodeData<Elt>>>,
-    states: Cell<Elt::States>,
-    computed_values: Cell<Option<ComputedValues>>,
-}
-
-impl<Elt> PersistentData<Elt>
-where
-    Elt: Element,
-{
-    pub fn new() -> Rc<PersistentData<Elt>> {
-        Rc::new(PersistentData {
-            id: PERSISTENT_ID.fetch_add(1, Ordering::Acquire),
-            owner: RefCell::new(Weak::new()),
-            states: Cell::new(Default::default()),
-            computed_values: Cell::new(None),
-        })
-    }
-}
-
-pub trait AnyPersistent {
-    fn owner(&self) -> Option<AnyNode>;
-    fn id(&self) -> u64;
-}
-
-impl<Elt> AnyPersistent for PersistentData<Elt>
-where
-    Elt: Element,
-{
-    fn owner(&self) -> Option<AnyNode> {
-        self.owner
-            .borrow()
-            .upgrade()
-            .map(|data| AnyNode::from(Node(data)))
-    }
-
-    fn id(&self) -> u64 {
-        self.id
-    }
-}
-
-#[derive(Clone)]
-pub struct PersistentRef(Rc<dyn AnyPersistent>);
-
-impl Deref for PersistentRef {
-    type Target = dyn AnyPersistent;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl PartialEq for PersistentRef {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
+use std::rc::Rc;
 
 pub struct NodeData<Elt>
 where
     Elt: Element,
 {
+    id: u64,
     element: Elt,
     handlers: RefCell<Elt::Handlers>,
-    pub(crate) persistent: Rc<PersistentData<Elt>>,
     children: Vec<Elt::Child>,
 }
 
@@ -91,6 +25,7 @@ where
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let name = format!("NodeData<{}>", type_name::<Elt>());
         f.debug_struct(&name)
+            .field("id", &self.id)
             .field("element", &self.element())
             .field("children", &self.children)
             .field("handlers", &"...")
@@ -102,14 +37,10 @@ impl<Elt> NodeData<Elt>
 where
     Elt: Element,
 {
-    fn new(
-        persistent: Rc<PersistentData<Elt>>,
-        element: Elt,
-        children: Vec<Elt::Child>,
-    ) -> NodeData<Elt> {
+    fn new(id: u64, element: Elt, children: Vec<Elt::Child>) -> NodeData<Elt> {
         NodeData {
+            id,
             element,
-            persistent,
             children,
             handlers: RefCell::new(Default::default()),
         }
@@ -123,14 +54,6 @@ where
     /// Returns a reference to the element representing this node.
     pub fn element(&self) -> &Elt {
         &self.element
-    }
-
-    pub fn states(&self) -> &Cell<Elt::States> {
-        &self.persistent.states
-    }
-
-    pub fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.persistent.computed_values
     }
 
     pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
@@ -154,17 +77,14 @@ impl<'a> Iterator for NodeDataChildrenIter<'a> {
 }
 
 pub trait AnyNodeData: Debug {
-    fn computed_values(&self) -> &Cell<Option<ComputedValues>>;
     fn get_child(&self, index: usize) -> Option<DynamicNode>;
     fn children(&self) -> NodeDataChildrenIter;
-    fn process(&self, event: &InputEvent) -> bool;
+    fn process(&self, states: ElementStates, event: &InputEvent) -> ElementStates;
     fn create_computed_values(&self) -> ComputedValues;
     fn style(&self) -> Option<Style>;
-    fn has_state(&self, key: &str) -> bool;
     fn type_id(&self) -> TypeId;
     fn attributes(&self) -> Vec<(&'static str, String)>;
     fn name(&self) -> &'static str;
-    fn persistent(&self) -> PersistentRef;
     fn id(&self) -> u64;
     fn interactive(&self) -> bool;
 }
@@ -173,10 +93,6 @@ impl<Elt> AnyNodeData for NodeData<Elt>
 where
     Elt: Element,
 {
-    fn computed_values(&self) -> &Cell<Option<ComputedValues>> {
-        &self.persistent.computed_values
-    }
-
     fn get_child(&self, index: usize) -> Option<DynamicNode> {
         self.children.get(index).map(|child| child.get_node())
     }
@@ -188,17 +104,10 @@ where
         }
     }
 
-    fn process(&self, event: &InputEvent) -> bool {
+    fn process(&self, states: ElementStates, event: &InputEvent) -> ElementStates {
         let mut handlers = self.handlers.borrow_mut();
-        let (_sink, new_states) =
-            self.element
-                .process(self.persistent.states.get(), &mut *handlers, event);
-        if self.persistent.states.get() != new_states {
-            self.persistent.states.set(new_states);
-            true
-        } else {
-            false
-        }
+        let (_sink, new_states) = self.element.process(states, &mut *handlers, event);
+        new_states
     }
 
     fn create_computed_values(&self) -> ComputedValues {
@@ -207,10 +116,6 @@ where
 
     fn style(&self) -> Option<Style> {
         self.element.style()
-    }
-
-    fn has_state(&self, key: &str) -> bool {
-        self.persistent.states.get().has_state(key)
     }
 
     fn type_id(&self) -> TypeId {
@@ -225,12 +130,8 @@ where
         Elt::ELEMENT_NAME
     }
 
-    fn persistent(&self) -> PersistentRef {
-        PersistentRef(self.persistent.clone())
-    }
-
     fn id(&self) -> u64 {
-        self.persistent.id
+        self.id
     }
 
     fn interactive(&self) -> bool {
@@ -247,13 +148,8 @@ where
     Elt: Element,
 {
     /// Create a new DOM node from the given element and children vector.
-    pub fn new(
-        persistent: Rc<PersistentData<Elt>>,
-        element: Elt,
-        children: Vec<Elt::Child>,
-    ) -> Node<Elt> {
-        let data = Rc::new(NodeData::new(persistent, element, children));
-        data.persistent.owner.replace(Rc::downgrade(&data));
+    pub fn new(id: u64, element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
+        let data = Rc::new(NodeData::new(id, element, children));
         Node(data)
     }
 }

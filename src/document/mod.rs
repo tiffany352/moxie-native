@@ -1,93 +1,63 @@
-use crate::dom::element::DynamicNode;
+use crate::dom::element::{DynamicNode, ElementStates};
 use crate::dom::input::{InputEvent, State};
-use crate::dom::node::{NodeRef, PersistentRef};
+use crate::dom::node::{AnyNode, NodeRef};
 use crate::dom::{Node, Window};
 use crate::layout::{LayoutEngine, LayoutTreeNode, LogicalSize};
-use crate::style::StyleEngine;
+use crate::style::ComputedValues;
 use crate::util::equal_rc::EqualRc;
-use crate::util::outer_join::{outer_join_filter, Joined};
+use moxie::embed::Runtime;
 use std::collections::HashMap;
 
-pub struct Document {
-    window: Node<Window>,
-    content_size: LogicalSize,
-    layout_engine: LayoutEngine,
-    style_engine: StyleEngine,
-    hovered_node: Option<PersistentRef>,
-    pressed_node: Option<PersistentRef>,
-    nodes_by_id: HashMap<u64, PersistentRef>,
+struct NodeState {
+    node: AnyNode,
+    states: ElementStates,
+    computed_values: Option<ComputedValues>,
+    live: bool,
 }
 
-impl Document {
-    pub fn new(window: Node<Window>, content_size: LogicalSize) -> Document {
-        let mut nodes_by_id = HashMap::new();
-        Self::add_node((&window).into(), &mut nodes_by_id);
-        Document {
-            window,
-            content_size,
-            nodes_by_id,
-            layout_engine: LayoutEngine::new(),
-            style_engine: StyleEngine::new(),
-            hovered_node: None,
-            pressed_node: None,
-        }
-    }
+pub(crate) struct DocumentState {
+    states: HashMap<u64, NodeState>,
+    pub window: Node<Window>,
+    pub content_size: LogicalSize,
+    hovered_node: Option<u64>,
+    pressed_node: Option<u64>,
+}
 
-    fn add_node(new: NodeRef, map: &mut HashMap<u64, PersistentRef>) {
-        map.insert(new.id(), new.persistent());
+impl DocumentState {
+    pub fn walk_children(&mut self, node: NodeRef) {
+        let entry = self.states.entry(node.id()).or_insert_with(|| NodeState {
+            node: node.to_owned(),
+            states: ElementStates::default(),
+            computed_values: None,
+            live: false,
+        });
+        entry.live = true;
 
-        for child in new.children() {
-            if let DynamicNode::Node(child) = child {
-                Self::add_node(child, map);
+        for child in node.children() {
+            if let DynamicNode::Node(node) = child {
+                self.walk_children(node)
             }
         }
     }
 
-    fn remove_node(old: NodeRef, map: &mut HashMap<u64, PersistentRef>) {
-        map.remove(&old.id());
-
-        for child in old.children() {
-            if let DynamicNode::Node(child) = child {
-                Self::remove_node(child, map);
-            }
-        }
+    pub fn computed_values(&self, id: u64) -> &ComputedValues {
+        self.states
+            .get(&id)
+            .unwrap()
+            .computed_values
+            .as_ref()
+            .unwrap()
     }
 
-    fn walk_live(new: NodeRef, old: NodeRef, map: &mut HashMap<u64, PersistentRef>) {
-        if new != old {
-            if new.id() != old.id() {
-                map.remove(&old.id());
-                map.insert(new.id(), new.persistent());
-            }
+    fn set_root(&mut self, window: Node<Window>) {
+        self.window = window.clone();
 
-            let new_children = new.children().map(|child| child.node());
-            let old_children = old.children().map(|child| child.node());
-
-            for item in outer_join_filter(new_children, old_children) {
-                match item {
-                    Joined::Both(new, old) => Self::walk_live(new, old, map),
-                    Joined::Left(new) => Self::add_node(new, map),
-                    Joined::Right(old) => Self::remove_node(old, map),
-                }
-            }
-        }
-    }
-
-    pub fn set_root(&mut self, window: Node<Window>) {
-        let old = std::mem::replace(&mut self.window, window);
-
-        Self::walk_live((&self.window).into(), (&old).into(), &mut self.nodes_by_id);
+        self.walk_children((&window).into());
+        self.states.retain(|_id, state| state.live);
     }
 
     pub fn set_size(&mut self, size: LogicalSize) {
         self.content_size = size;
-    }
-
-    pub fn get_layout(&mut self) -> EqualRc<LayoutTreeNode> {
-        self.style_engine
-            .update(self.window.clone(), self.content_size);
-        self.layout_engine
-            .layout(self.window.clone(), self.content_size)
     }
 
     pub fn mouse_move(&mut self, hovered: Option<u64>) -> bool {
@@ -95,22 +65,25 @@ impl Document {
             return false;
         }
 
-        let new_hovered = hovered.and_then(|hovered| self.nodes_by_id.get(&hovered));
-
-        if new_hovered != self.hovered_node.as_ref() {
-            if let Some(ref hovered) = self.hovered_node {
-                if let Some(owner) = hovered.owner() {
-                    owner.process(&InputEvent::Hovered { state: State::End });
+        if hovered != self.hovered_node {
+            if let Some(hovered) = self.hovered_node {
+                if let Some(state) = self.states.get_mut(&hovered) {
+                    state.states = state
+                        .node
+                        .process(state.states, &InputEvent::Hovered { state: State::End });
                 }
             }
 
-            self.hovered_node = new_hovered.cloned();
+            self.hovered_node = hovered;
 
-            if let Some(ref hovered) = self.hovered_node {
-                if let Some(owner) = hovered.owner() {
-                    owner.process(&InputEvent::Hovered {
-                        state: State::Begin,
-                    });
+            if let Some(hovered) = self.hovered_node {
+                if let Some(state) = self.states.get_mut(&hovered) {
+                    state.states = state.node.process(
+                        state.states,
+                        &InputEvent::Hovered {
+                            state: State::Begin,
+                        },
+                    );
                 }
             }
 
@@ -121,28 +94,91 @@ impl Document {
     }
 
     pub fn mouse_button1(&mut self, pressed: bool) -> bool {
-        if let Some(ref node) = self.pressed_node {
-            if let Some(owner) = node.owner() {
+        if let Some(node) = self.pressed_node {
+            if let Some(state) = self.states.get_mut(&node) {
                 if !pressed {
                     self.pressed_node = None;
                 }
-                return owner.process(&InputEvent::MouseLeft {
-                    state: if pressed { State::Begin } else { State::End },
-                });
+                state.states = state.node.process(
+                    state.states,
+                    &InputEvent::MouseLeft {
+                        state: if pressed { State::Begin } else { State::End },
+                    },
+                );
+                return true;
             }
         }
 
-        if let Some(ref hovered) = self.hovered_node {
-            if let Some(owner) = hovered.owner() {
+        if let Some(hovered) = self.hovered_node {
+            if let Some(state) = self.states.get_mut(&hovered) {
                 if pressed {
-                    self.pressed_node = Some(hovered.clone());
+                    self.pressed_node = Some(hovered);
                 }
-                return owner.process(&InputEvent::MouseLeft {
-                    state: if pressed { State::Begin } else { State::End },
-                });
+                state.states = state.node.process(
+                    state.states,
+                    &InputEvent::MouseLeft {
+                        state: if pressed { State::Begin } else { State::End },
+                    },
+                );
+                return true;
             }
         }
 
         false
     }
 }
+
+pub struct Document {
+    state: DocumentState,
+    style_runtime: Runtime,
+    layout_engine: LayoutEngine,
+}
+
+impl Document {
+    pub fn new(window: Node<Window>, content_size: LogicalSize) -> Document {
+        let mut doc = Document {
+            state: DocumentState {
+                window,
+                content_size,
+                states: HashMap::new(),
+                hovered_node: None,
+                pressed_node: None,
+            },
+            style_runtime: Runtime::new(),
+            layout_engine: LayoutEngine::new(),
+        };
+        doc.state.walk_children((&doc.state.window.clone()).into());
+        doc
+    }
+
+    pub fn computed_values(&self, id: u64) -> &ComputedValues {
+        self.state.computed_values(id)
+    }
+
+    pub fn set_root(&mut self, window: Node<Window>) {
+        self.state.set_root(window);
+    }
+
+    pub fn set_size(&mut self, size: LogicalSize) {
+        self.state.set_size(size);
+    }
+
+    pub fn get_layout(&mut self) -> EqualRc<LayoutTreeNode> {
+        let state = &mut self.state;
+        let window = state.window.clone();
+        self.style_runtime.run_once(move || {
+            state.update_style((&window).into(), None);
+        });
+        self.layout_engine.layout(&mut self.state)
+    }
+
+    pub fn mouse_move(&mut self, hovered: Option<u64>) -> bool {
+        self.state.mouse_move(hovered)
+    }
+
+    pub fn mouse_button1(&mut self, pressed: bool) -> bool {
+        self.state.mouse_button1(pressed)
+    }
+}
+
+mod styling;

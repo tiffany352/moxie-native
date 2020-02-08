@@ -1,7 +1,11 @@
 use crate::dom::element::{Attribute, Element, Event, HasAttribute, HasEvent};
-use crate::dom::node::{Node, PersistentData};
+use crate::dom::node::Node;
 use crate::util::event_handler::EventHandler;
 use std::marker::PhantomData;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+
+static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Builder pattern for creating a DOM node, typically used from the
 /// mox! macro.
@@ -180,13 +184,11 @@ where
             handlers,
         } = self;
 
-        let persistent = moxie::memo::once(PersistentData::new);
+        let id = moxie::memo::once(|| ID_COUNTER.fetch_add(1, Ordering::Acquire));
 
         let node = moxie::memo::memo(
             (element, children),
-            |(elt, children): &(Elt, Vec<Elt::Child>)| {
-                Node::new(persistent, elt.clone(), children.clone())
-            },
+            |(elt, children): &(Elt, Vec<Elt::Child>)| Node::new(id, elt.clone(), children.clone()),
         );
 
         node.handlers().replace(handlers);

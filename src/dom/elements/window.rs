@@ -29,7 +29,6 @@ element_attributes! {
 impl Element for Window {
     type Child = Node<View>;
     type Handlers = ();
-    type States = ();
 
     const ELEMENT_NAME: &'static str = "window";
 

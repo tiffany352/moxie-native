@@ -174,7 +174,7 @@ impl Context {
 
         match layout.render {
             RenderData::Node(ref node) => {
-                let values = node.computed_values().get().unwrap();
+                let values = self.document.computed_values(node.id());
 
                 let corner_radius = BorderRadius {
                     top_left: size2(
@@ -273,7 +273,7 @@ impl Context {
                     },
                 ref parent,
             } => {
-                let values = parent.computed_values().get().unwrap();
+                let values = self.document.computed_values(parent.id());
                 let color = values.text_color;
                 builder.push_simple_stacking_context(
                     point2(0.0, 0.0),

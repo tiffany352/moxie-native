@@ -27,7 +27,6 @@ multiple_children! {
 impl Element for Span {
     type Child = SpanChild;
     type Handlers = ();
-    type States = ();
 
     const ELEMENT_NAME: &'static str = "span";
 

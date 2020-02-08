@@ -1,4 +1,4 @@
-use crate::dom::element::{Element, ElementStates, HasEvent};
+use crate::dom::element::{Element, ElementState, ElementStates, HasEvent};
 use crate::dom::input::{InputEvent, State};
 use crate::dom::{AttrStyle, ClickEvent, Node, Span, View};
 use crate::style::Style;
@@ -31,26 +31,9 @@ element_handlers! {
     }
 }
 
-#[derive(Default, Clone, Copy, PartialEq)]
-pub struct ButtonStates {
-    hovered: bool,
-    pressed: bool,
-}
-
-impl ElementStates for ButtonStates {
-    fn has_state(&self, name: &str) -> bool {
-        match name {
-            "hover" => self.hovered,
-            "press" => self.pressed,
-            _ => false,
-        }
-    }
-}
-
 impl Element for Button {
     type Child = ButtonChild;
     type Handlers = ButtonHandlers;
-    type States = ButtonStates;
 
     const ELEMENT_NAME: &'static str = "button";
 
@@ -60,48 +43,26 @@ impl Element for Button {
 
     fn process(
         &self,
-        states: Self::States,
+        states: ElementStates,
         handlers: &mut Self::Handlers,
         event: &InputEvent,
-    ) -> (bool, Self::States) {
+    ) -> (bool, ElementStates) {
         match event {
             InputEvent::Hovered {
                 state: State::Begin,
-            } => (
-                true,
-                ButtonStates {
-                    hovered: true,
-                    ..states
-                },
-            ),
-            InputEvent::Hovered { state: State::End } => (
-                true,
-                ButtonStates {
-                    hovered: false,
-                    ..states
-                },
-            ),
+            } => (true, states | ElementState::Hover),
+            InputEvent::Hovered { state: State::End } => {
+                (true, states.difference(ElementState::Hover.into()))
+            }
             InputEvent::MouseLeft {
                 state: State::Begin,
                 ..
-            } => (
-                true,
-                ButtonStates {
-                    pressed: true,
-                    ..states
-                },
-            ),
+            } => (true, states | ElementState::Press),
             InputEvent::MouseLeft {
                 state: State::End, ..
-            } if states.pressed => {
+            } if states.contains(ElementState::Press) => {
                 handlers.on_click.invoke(&ClickEvent);
-                (
-                    true,
-                    ButtonStates {
-                        pressed: false,
-                        ..states
-                    },
-                )
+                (true, states.difference(ElementState::Press.into()))
             }
             _ => (false, states),
         }

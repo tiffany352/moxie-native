@@ -3,6 +3,7 @@ use super::{
     text::{TextLayoutInfo, TextState},
     LayoutChild, LayoutText, LayoutTreeNode, LogicalSideOffsets, LogicalSize, RenderData,
 };
+use crate::document::DocumentState;
 use crate::dom::{element::DynamicNode, node::AnyNode, node::NodeRef};
 use crate::style::{ComputedValues, DisplayType};
 use crate::util::equal_rc::EqualRc;
@@ -114,6 +115,7 @@ impl LineState {
 }
 
 fn collect_inline_items(
+    state: &mut DocumentState,
     node: NodeRef,
     parent_values: &ComputedValues,
     max_size: LogicalSize,
@@ -122,14 +124,14 @@ fn collect_inline_items(
     for child in node.children() {
         topo::call(|| match child {
             DynamicNode::Node(node) => {
-                let values = node.computed_values().get().unwrap();
+                let values = *state.computed_values(node.id());
                 match values.display {
                     DisplayType::Block(ref block) => {
-                        let layout = block::layout_block(node, &values, block, max_size);
+                        let layout = block::layout_block(state, node, &values, block, max_size);
                         items.push(InlineLayoutItem::Block(layout));
                     }
                     DisplayType::Inline(_) => {
-                        collect_inline_items(node, &values, max_size, items);
+                        collect_inline_items(state, node, &values, max_size, items);
                     }
                 }
             }
@@ -193,14 +195,15 @@ fn calc_inline_layout(
     })
 }
 
-pub fn layout_inline(
+pub(crate) fn layout_inline(
+    state: &mut DocumentState,
     node: NodeRef,
     values: &ComputedValues,
     max_size: LogicalSize,
 ) -> EqualRc<LayoutTreeNode> {
     let mut items = vec![];
 
-    collect_inline_items(node, values, max_size, &mut items);
+    collect_inline_items(state, node, values, max_size, &mut items);
 
     moxie::memo::memo(
         (node.to_owned(), max_size.width, items),

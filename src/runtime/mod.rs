@@ -11,11 +11,10 @@ use winit::{
 
 mod window;
 
-type RunFunc = Box<dyn FnMut(()) -> Node<App> + 'static>;
-
 /// Contains the event loop and the root component of the application.
 pub struct Runtime {
-    moxie_runtime: MoxieRuntime<RunFunc, (), Node<App>>,
+    moxie_runtime: MoxieRuntime,
+    root_func: Box<dyn FnMut() -> Node<App> + 'static>,
     windows: HashMap<WindowId, window::Window>,
     window_ids: Vec<WindowId>,
     proxy: Option<EventLoopProxy<()>>,
@@ -25,7 +24,8 @@ impl Runtime {
     /// Create a new runtime based on the application's root component.
     pub fn new(mut root: impl FnMut() -> Node<App> + 'static) -> Runtime {
         Runtime {
-            moxie_runtime: MoxieRuntime::new(Box::new(move |_: ()| {
+            moxie_runtime: MoxieRuntime::new(),
+            root_func: Box::new(move || {
                 illicit::child_env!(DevToolsRegistry => DevToolsRegistry::new()).enter(|| {
                     topo::call(|| {
                         let registry = illicit::Env::expect::<DevToolsRegistry>();
@@ -34,7 +34,7 @@ impl Runtime {
                         app
                     })
                 })
-            })),
+            }),
             windows: HashMap::new(),
             window_ids: vec![],
             proxy: None,
@@ -69,7 +69,7 @@ impl Runtime {
     /// Updates the moxie runtime and reconciles the DOM changes,
     /// re-rendering if things have changed.
     fn update_runtime(&mut self, event_loop: &EventLoopWindowTarget<()>) {
-        let app = self.moxie_runtime.run_once(());
+        let app = self.moxie_runtime.run_once(&mut self.root_func);
 
         let window_ids = self.window_ids.drain(..).collect::<Vec<_>>();
         for joined in outer_join(app.children(), window_ids) {
