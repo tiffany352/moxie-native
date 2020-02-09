@@ -49,6 +49,10 @@ impl DocumentState {
             .unwrap()
     }
 
+    pub fn node_states(&self, id: u64) -> ElementStates {
+        self.states.get(&id).unwrap().states
+    }
+
     fn set_root(&mut self, window: Node<Window>) {
         self.window = window.clone();
 
@@ -166,8 +170,14 @@ impl Document {
     pub fn get_layout(&mut self) -> EqualRc<LayoutTreeNode> {
         let state = &mut self.state;
         let window = state.window.clone();
+        let size = state.content_size;
         self.style_runtime.run_once(move || {
-            state.update_style((&window).into(), None);
+            illicit::child_env!(
+                LogicalSize => size
+            )
+            .enter(move || {
+                state.update_style((&window).into(), None);
+            })
         });
         self.layout_engine.layout(&mut self.state)
     }

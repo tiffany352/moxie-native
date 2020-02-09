@@ -1,7 +1,23 @@
 use super::DocumentState;
-use crate::dom::element::DynamicNode;
+use crate::dom::element::{DynamicNode, ElementState};
 use crate::dom::node::NodeRef;
-use crate::style::{ComputedValues, Style};
+use crate::style::{ComputedValues, NodeSelect, Style};
+use std::any::TypeId;
+
+struct NodeProxy<'a> {
+    node: NodeRef<'a>,
+    state: &'a DocumentState,
+}
+
+impl<'a> NodeSelect for NodeProxy<'a> {
+    fn has_type(&self, ty: TypeId) -> bool {
+        self.node.type_id() == ty
+    }
+
+    fn has_state(&self, state: ElementState) -> bool {
+        self.state.node_states(self.node.id()).contains(state)
+    }
+}
 
 impl DocumentState {
     pub fn update_style(&mut self, node: NodeRef, parent: Option<&ComputedValues>) {
@@ -21,8 +37,10 @@ impl DocumentState {
             let style = node.style();
             if let Some(Style(style)) = style {
                 (style.attributes.apply)(&mut computed);
+
+                let node = NodeProxy { node, state: self };
                 for sub_style in style.sub_styles {
-                    if (sub_style.selector)(node) {
+                    if (sub_style.selector)(&node) {
                         (sub_style.attributes.apply)(&mut computed);
                     }
                 }

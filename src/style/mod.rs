@@ -1,6 +1,7 @@
-use crate::dom::node::NodeRef;
+use crate::dom::element::ElementState;
 use crate::layout::{LogicalLength, LogicalSideOffsets};
 use crate::Color;
+use std::any::TypeId;
 
 /// Specifies which direction layout should be performed in.
 #[derive(Clone, PartialEq, Copy, Debug)]
@@ -168,7 +169,18 @@ impl Default for ComputedValues {
     }
 }
 
-pub type Selector = fn(NodeRef) -> bool;
+pub trait NodeSelect {
+    fn has_type(&self, ty: TypeId) -> bool;
+    fn has_state(&self, state: ElementState) -> bool;
+}
+
+impl dyn NodeSelect {
+    pub fn is_type<Ty: 'static>(&self) -> bool {
+        self.has_type(TypeId::of::<Ty>())
+    }
+}
+
+pub type Selector = fn(&dyn NodeSelect) -> bool;
 pub type ApplyFunc = fn(&mut ComputedValues);
 pub type GetAttributes = fn() -> Vec<(&'static str, String)>;
 

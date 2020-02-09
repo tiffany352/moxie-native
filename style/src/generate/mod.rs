@@ -11,13 +11,13 @@ fn generate_selector(selector: Selector) -> Expr {
             let span = selector.span();
             let ident = selector.ident;
             parse_quote_spanned!(
-                span => node.type_id() == ::std::any::TypeId::of::<::moxie_native::dom::#ident>()
+                span => node.is_type::<::moxie_native::dom::#ident>()
             )
         }
         Selector::State(selector) => {
             let span = selector.span();
             let ident = selector.ident;
-            parse_quote_spanned!(span => node.has_state(stringify!(#ident)))
+            parse_quote_spanned!(span => node.has_state(style_impl::state::#ident()))
         }
     }
 }
@@ -52,7 +52,7 @@ fn generate_sub_style(style: SubStyle) -> ExprStruct {
     parse_quote_spanned!(
         span =>
         ::moxie_native::style::SubStyle {
-            selector: |node: ::moxie_native::dom::node::NodeRef| -> bool {
+            selector: |node: &dyn ::moxie_native::style::NodeSelect| -> bool {
                 #(#selectors)&&*
             },
             attributes: #attributes,
