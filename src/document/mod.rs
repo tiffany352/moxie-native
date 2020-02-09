@@ -57,7 +57,8 @@ impl DocumentState {
         self.window = window.clone();
 
         self.walk_children((&window).into());
-        self.states.retain(|_id, state| state.live);
+        self.states
+            .retain(|_id, state| std::mem::replace(&mut state.live, false));
     }
 
     pub fn set_size(&mut self, size: LogicalSize) {
