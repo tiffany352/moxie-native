@@ -5,9 +5,9 @@ authors = ["Tiffany Bennett <tiffnixen@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-winit = "0.20.0"
-gleam = "0.6.2"
-glutin = "0.22.0"
+winit = "0.22.0"
+gleam = "0.10.0"
+glutin = "0.24.0"
 scopeguard = "1"
 euclid = "0.20.3"
 slotmap = "0.4"
@@ -30,7 +30,7 @@ rev = "1d51f167db29e24e18c08bf702de79b675598828"
 
 [dependencies.webrender]
 git = "https://github.com/servo/webrender.git"
-rev = "11954418bcced3d611806541718ba951bad98765"
+rev = "42e0c3246ddc0d53737895b4dabaa7c11c240579"
 
 [dependencies.skribo]
 git = "https://github.com/tiffany352/skribo.git"
