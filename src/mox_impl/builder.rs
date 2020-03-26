@@ -156,7 +156,7 @@ where
     pub fn on_event<Ev>(
         mut self,
         _event: PhantomData<Ev>,
-        func: impl FnMut(&Ev) -> () + 'static,
+        func: impl FnMut(&Ev) -> () + 'static + Sync + Send,
     ) -> Self
     where
         Ev: Event,
@@ -191,7 +191,7 @@ where
             |(elt, children): &(Elt, Vec<Elt::Child>)| Node::new(id, elt.clone(), children.clone()),
         );
 
-        node.handlers().replace(handlers);
+        *node.handlers().lock().unwrap() = handlers;
 
         node
     }

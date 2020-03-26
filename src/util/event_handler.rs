@@ -1,39 +1,35 @@
-use std::cell::{RefCell, RefMut};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 struct HandlerInner<Func> {
-    func: RefCell<Func>,
+    func: Mutex<Func>,
 }
 
-trait Handler<Event> {
+trait Handler<Event>: Sync + Send {
     fn invoke(&self, event: &Event);
 }
 
 impl<Event, Func> Handler<Event> for HandlerInner<Func>
 where
-    Func: FnMut(&Event) + 'static,
+    Func: FnMut(&Event) + 'static + Sync + Send,
 {
     fn invoke(&self, event: &Event) {
-        RefMut::map(self.func.borrow_mut(), |func| {
-            (*func)(event);
-            func
-        });
+        (&mut *self.func.lock().unwrap())(event);
     }
 }
 
 /// Represents the callback attached to an event. Allows the handler to
 /// be more easily passed around and invoked than directly storing a
 /// boxed FnMut.
-pub struct EventHandler<Event>(Option<Rc<dyn Handler<Event>>>);
+pub struct EventHandler<Event>(Option<Arc<dyn Handler<Event>>>);
 
 impl<Event> EventHandler<Event> {
     pub fn new() -> EventHandler<Event> {
         EventHandler(None)
     }
 
-    pub fn with_func(func: impl FnMut(&Event) + 'static) -> EventHandler<Event> {
-        EventHandler(Some(Rc::new(HandlerInner {
-            func: RefCell::new(func),
+    pub fn with_func(func: impl FnMut(&Event) + 'static + Sync + Send) -> EventHandler<Event> {
+        EventHandler(Some(Arc::new(HandlerInner {
+            func: Mutex::new(func),
         })))
     }
 
