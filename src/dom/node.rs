@@ -2,11 +2,10 @@ use crate::dom::element::{DynamicNode, Element, ElementStates, NodeChild};
 use crate::dom::input::InputEvent;
 use crate::style::{ComputedValues, Style};
 use std::any::{type_name, TypeId};
-use std::cell::RefCell;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub struct NodeData<Elt>
 where
@@ -14,7 +13,7 @@ where
 {
     id: u64,
     element: Elt,
-    handlers: RefCell<Elt::Handlers>,
+    handlers: Mutex<Elt::Handlers>,
     children: Vec<Elt::Child>,
 }
 
@@ -42,7 +41,7 @@ where
             id,
             element,
             children,
-            handlers: RefCell::new(Default::default()),
+            handlers: Mutex::new(Default::default()),
         }
     }
 
@@ -56,7 +55,7 @@ where
         &self.element
     }
 
-    pub fn handlers(&self) -> &RefCell<Elt::Handlers> {
+    pub fn handlers(&self) -> &Mutex<Elt::Handlers> {
         &self.handlers
     }
 }
@@ -105,7 +104,7 @@ where
     }
 
     fn process(&self, states: ElementStates, event: &InputEvent) -> ElementStates {
-        let mut handlers = self.handlers.borrow_mut();
+        let mut handlers = self.handlers.lock().unwrap();
         let (_sink, new_states) = self.element.process(states, &mut *handlers, event);
         new_states
     }
@@ -141,7 +140,7 @@ where
 
 /// Typed handle to a DOM node.
 #[derive(Clone, Debug)]
-pub struct Node<Elt: Element>(Rc<NodeData<Elt>>);
+pub struct Node<Elt: Element>(Arc<NodeData<Elt>>);
 
 impl<Elt> Node<Elt>
 where
@@ -149,7 +148,7 @@ where
 {
     /// Create a new DOM node from the given element and children vector.
     pub fn new(id: u64, element: Elt, children: Vec<Elt::Child>) -> Node<Elt> {
-        let data = Rc::new(NodeData::new(id, element, children));
+        let data = Arc::new(NodeData::new(id, element, children));
         Node(data)
     }
 }
@@ -170,7 +169,7 @@ where
     Elt: Element,
 {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -254,7 +253,7 @@ impl<'a> NodeRef<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct AnyNode(Rc<dyn AnyNodeData>);
+pub struct AnyNode(Arc<dyn AnyNodeData>);
 
 impl<Elt> From<Node<Elt>> for AnyNode
 where
@@ -275,7 +274,7 @@ impl Deref for AnyNode {
 
 impl PartialEq for AnyNode {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
