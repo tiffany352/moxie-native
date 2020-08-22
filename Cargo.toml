@@ -14,7 +14,7 @@ slotmap = "0.4"
 font-kit = "0.4.0"
 proc-macro-hack = "0.5"
 proc-macro-nested = "0.1.3"
-enumset = "0.4.4"
+enumset = "1.0.1"
 log = "0.4.11"
 
 [dependencies.illicit]
