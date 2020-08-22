@@ -2,7 +2,7 @@
 //! arranging elements and performing text layout.
 
 use crate::document::DocumentState;
-use crate::dom::node::{AnyNode, AnyNodeData};
+use crate::dom::node::AnyNode;
 use crate::style::DisplayType;
 use crate::util::equal_rc::EqualRc;
 use euclid::{Length, Point2D, SideOffsets2D, Size2D};

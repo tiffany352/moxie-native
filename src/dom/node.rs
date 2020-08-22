@@ -58,6 +58,10 @@ where
     pub fn handlers(&self) -> &Mutex<Elt::Handlers> {
         &self.handlers
     }
+
+    pub fn id(&self) -> u64 {
+        self.id
+    }
 }
 
 pub struct NodeDataChildrenIter<'a> {

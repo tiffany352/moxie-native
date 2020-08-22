@@ -42,10 +42,11 @@ macro_rules! element_attributes {
 }
 
 macro_rules! element_handlers {
-    ( $handler_name:ident for $element:ty { $( $name:ident : $class:ty ),+ $(,)* } ) => {
+    ( $handler_name:ident for $element:ty { $( $(#[$meta:meta])* $name:ident : $class:ty ),+ $(,)* } ) => {
         #[derive(Default)]
         pub struct $handler_name {
             $(
+                $(#[$meta])*
                 $name : EventHandler<$class>
             ),+
         }

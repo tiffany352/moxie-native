@@ -131,6 +131,16 @@ impl DocumentState {
 
         false
     }
+
+    pub fn close_requested(&mut self) -> bool {
+        if let Some(state) = self.states.get_mut(&self.window.id()) {
+            state.states = state
+                .node
+                .process(state.states, &InputEvent::CloseRequested);
+            return true;
+        }
+        false
+    }
 }
 
 pub struct Document {
@@ -186,6 +196,10 @@ impl Document {
 
     pub fn mouse_button1(&mut self, pressed: bool) -> bool {
         self.state.mouse_button1(pressed)
+    }
+
+    pub fn close_requested(&mut self) -> bool {
+        self.state.close_requested()
     }
 }
 

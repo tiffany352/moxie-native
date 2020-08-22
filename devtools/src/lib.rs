@@ -135,7 +135,7 @@ struct Tools {
 
 impl DevTools for Tools {
     fn on_update(&mut self, node: AnyNode) {
-        println!("new node {}", node.name());
+        debug!("new node {}", node.name());
         self.root.set(Some(node));
     }
 }

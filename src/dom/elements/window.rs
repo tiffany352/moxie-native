@@ -1,6 +1,10 @@
-use crate::dom::element::Element;
+use crate::dom::element::{Element, ElementStates, HasEvent};
+use crate::dom::events::CloseRequestedEvent;
+use crate::dom::input::InputEvent;
 use crate::dom::{AttrStyle, AttrTitle, Node, View};
 use crate::style::Style;
+use crate::util::event_handler::EventHandler;
+use crate::Runtime;
 
 /// Corresponds to <window>. This is the top-level container for UI and
 /// corresponds to an OS window.
@@ -26,9 +30,19 @@ element_attributes! {
     }
 }
 
+element_handlers! {
+    WindowHandlers for Window {
+        /// Handle the window closing. If an on_close handler isn't
+        /// specified, the default behavior is to call
+        /// `Runtime::shutdown()` which will stop the event loop and
+        /// cause the application to exit.
+        on_close: CloseRequestedEvent,
+    }
+}
+
 impl Element for Window {
     type Child = Node<View>;
-    type Handlers = ();
+    type Handlers = WindowHandlers;
 
     const ELEMENT_NAME: &'static str = "window";
 
@@ -38,5 +52,24 @@ impl Element for Window {
 
     fn attributes(&self) -> Vec<(&'static str, String)> {
         vec![("title", format!("{:?}", self.title))]
+    }
+
+    fn process(
+        &self,
+        states: ElementStates,
+        handlers: &mut Self::Handlers,
+        event: &InputEvent,
+    ) -> (bool, ElementStates) {
+        match event {
+            InputEvent::CloseRequested => {
+                if handlers.on_close.present() {
+                    handlers.on_close.invoke(&CloseRequestedEvent {});
+                } else {
+                    Runtime::shutdown()
+                }
+                (true, states)
+            }
+            _ => (false, states),
+        }
     }
 }

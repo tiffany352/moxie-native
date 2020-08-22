@@ -1,6 +1,7 @@
 pub enum InputEvent {
     Hovered { state: State },
     MouseLeft { state: State },
+    CloseRequested,
 }
 
 #[derive(Copy, Clone)]

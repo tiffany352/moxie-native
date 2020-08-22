@@ -4,6 +4,7 @@ use crate::layout::{LayoutText, LayoutTreeNode, LogicalPixel, RenderData};
 use crate::style::BorderStyle as DomBorderStyle;
 use crate::util::equal_rc::EqualRc;
 use gleam::gl;
+use log::debug;
 use skribo::FontRef;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -56,7 +57,7 @@ pub struct Context {
     api: RenderApi,
     document_id: DocumentId,
     rx: mpsc::Receiver<()>,
-    renderer: Renderer,
+    renderer: Option<Renderer>,
     pub document: Document,
     client_size: Size2D<i32, DevicePixel>,
     dpi_scale: f32,
@@ -91,6 +92,7 @@ impl Context {
             client_size,
         )
         .unwrap();
+        let renderer = Some(renderer);
         let api = sender.create_api();
         let document_id = api.add_document(client_size, 0);
 
@@ -110,6 +112,10 @@ impl Context {
             fonts: HashMap::new(),
             font_instances: HashMap::new(),
         }
+    }
+
+    pub fn deinit(&mut self) {
+        self.renderer.take().unwrap().deinit();
     }
 
     pub fn set_dom_window(&mut self, new_node: Node<Window>) {
@@ -313,7 +319,7 @@ impl Context {
         let dpi_scale = Scale::new(self.dpi_scale);
         let content_size = client_size.to_f32() / dpi_scale;
 
-        println!("render()");
+        debug!("render()");
         let pipeline_id = PipelineId(0, 0);
         let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
         let mut transaction = Transaction::new();
@@ -340,9 +346,11 @@ impl Context {
         );
         self.api.send_transaction(self.document_id, transaction);
         self.rx.recv().unwrap();
-        self.renderer.update();
-        let _ = self.renderer.render(client_size.to_i32());
-        let _ = self.renderer.flush_pipeline_info();
+        if let Some(ref mut renderer) = &mut self.renderer {
+            renderer.update();
+            let _ = renderer.render(client_size.to_i32());
+            let _ = renderer.flush_pipeline_info();
+        }
     }
 
     pub fn element_at(&mut self, position: LogicalPosition<f32>) -> Option<u64> {

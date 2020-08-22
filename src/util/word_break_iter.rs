@@ -63,13 +63,14 @@ impl<'a> WordBreakIterator<'a> {
 #[cfg(test)]
 mod test {
     use super::WordBreakIterator;
+    use log::debug;
 
     #[test]
     fn test_iter() {
         let string = "foo bar  baz";
         let expect = vec!["foo", " bar", "  baz"];
         let result = WordBreakIterator::new(string).collect::<Vec<_>>();
-        println!("{:#?}", result);
+        debug!("{:#?}", result);
         assert!(expect.len() == result.len());
         assert!(expect[0] == result[0]);
         assert!(expect[1] == result[1]);
@@ -81,7 +82,7 @@ mod test {
         let string = "foo  ";
         let expect = vec!["foo", "  "];
         let result = WordBreakIterator::new(string).collect::<Vec<_>>();
-        println!("{:#?}", result);
+        debug!("{:#?}", result);
         assert!(expect.len() == result.len());
         assert!(expect[0] == result[0]);
     }
@@ -91,7 +92,7 @@ mod test {
         let string = "   foo";
         let expect = vec!["   foo"];
         let result = WordBreakIterator::new(string).collect::<Vec<_>>();
-        println!("{:#?}", result);
+        debug!("{:#?}", result);
         assert!(expect.len() == result.len());
         assert!(expect[0] == result[0]);
     }

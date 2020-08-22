@@ -2,6 +2,7 @@ use crate::dom::{Node, Window as DomWindow};
 use crate::render::Context;
 use gleam::gl;
 use glutin::{ContextBuilder, ContextWrapper, PossiblyCurrent};
+use log::debug;
 use winit::{
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
@@ -75,7 +76,7 @@ impl Window {
     pub fn process(&mut self, event: WindowEvent) -> bool {
         match event {
             WindowEvent::Resized(size) => {
-                println!("resize {}x{}", size.width, size.height);
+                debug!("resize {}x{}", size.width, size.height);
                 let factor = self.gl_context.window().scale_factor();
                 self.context.resize(size, factor as f32);
                 self.render();
@@ -96,8 +97,17 @@ impl Window {
             WindowEvent::CursorLeft { .. } => {
                 return self.context.document.mouse_move(None);
             }
+            WindowEvent::CloseRequested => {
+                return self.context.document.close_requested();
+            }
             _ => (),
         }
         false
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        self.context.deinit();
     }
 }
