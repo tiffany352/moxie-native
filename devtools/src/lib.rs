@@ -1,5 +1,6 @@
 #![recursion_limit = "512"]
 
+use log::debug;
 use moxie::{state, Key};
 use moxie_native::dom::{
     devtools::{register_devtools, DevTools},
