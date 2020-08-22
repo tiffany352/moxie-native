@@ -7,5 +7,3 @@ pub use mox;
 // define_style!() macro
 pub use crate::style_impl;
 pub use moxie_native_style::define_style;
-// Include moxie prelude
-pub use moxie::prelude::*;

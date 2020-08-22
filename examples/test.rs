@@ -1,6 +1,6 @@
-#![feature(track_caller)]
 #![recursion_limit = "256"]
 
+use moxie::state;
 use moxie_native::prelude::*;
 
 define_style! {
@@ -45,11 +45,10 @@ define_style! {
 
 #[topo::nested]
 fn foo() -> Node<App> {
-    let click_count: Key<u32> = state(|| 0);
+    let (current_count, click_count) = state(|| 0);
 
-    let click_count2 = click_count.clone();
     let on_click = move |_: &ClickEvent| {
-        click_count2.update(|count| Some(count + 1));
+        click_count.update(|count| Some(count + 1));
     };
 
     mox! {
@@ -65,7 +64,7 @@ fn foo() -> Node<App> {
                     </span>
                     <button on_click={on_click} style={BUTTON_STYLE}>
                         <span>
-                            "Clicked " {% "{}", click_count} " times)"
+                            "Clicked " {% "{}", current_count} " times)"
                         </span>
                     </button>
                     <view style={VIEW1_STYLE}></view>

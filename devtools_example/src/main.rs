@@ -1,5 +1,5 @@
-#![feature(track_caller)]
 // Get all the types and macros needed for concise code
+use moxie::state;
 use moxie_native::prelude::*;
 use moxie_native_devtools::*;
 
@@ -28,13 +28,12 @@ define_style! {
 // This is the root component, which is expected to return an App element.
 fn my_app() -> Node<App> {
     // Declare a state variable, this works kind of like a React useState() hook.
-    let click_count: Key<usize> = state(|| 0);
+    let (current_count, click_count) = state(|| 0usize);
 
     // Clone the state so we can access it from the closure.
-    let click_state = click_count.clone();
     let on_click = move |_: &ClickEvent| {
         // Updating the state will trigger a re-render.
-        click_state.update(|count| Some(count + 1));
+        click_count.update(|count| Some(count + 1));
     };
 
     // The mox! macro lets us use nice syntax for declaring elements.
@@ -50,7 +49,7 @@ fn my_app() -> Node<App> {
                         <span>
                             "Click me! Total clicks: "
                             // Formatting can be done inline using this shorthand syntax.
-                            {% "{}", click_count}
+                            {% "{}", current_count}
                         </span>
                     </button>
                 </view>

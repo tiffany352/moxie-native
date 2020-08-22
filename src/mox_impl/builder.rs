@@ -184,10 +184,10 @@ where
             handlers,
         } = self;
 
-        let id = moxie::memo::once(|| ID_COUNTER.fetch_add(1, Ordering::Acquire));
+        let id = moxie::once(|| ID_COUNTER.fetch_add(1, Ordering::Acquire));
 
-        let node = moxie::memo::memo(
-            (element, children),
+        let node = moxie::cache(
+            &(element, children),
             |(elt, children): &(Elt, Vec<Elt::Child>)| Node::new(id, elt.clone(), children.clone()),
         );
 

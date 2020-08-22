@@ -1,7 +1,7 @@
 use crate::dom::devtools::DevToolsRegistry;
 use crate::dom::{App, Node};
 use crate::util::outer_join::{outer_join, Joined};
-use moxie::embed::Runtime as MoxieRuntime;
+use moxie::runtime::Runtime as MoxieRuntime;
 use std::collections::HashMap;
 use winit::{
     event::Event,
@@ -45,14 +45,16 @@ impl Runtime {
         Runtime {
             state: RuntimeState::Stopped {
                 root_func: Box::new(move || {
-                    illicit::child_env!(DevToolsRegistry => DevToolsRegistry::new()).enter(|| {
-                        topo::call(|| {
-                            let registry = illicit::Env::expect::<DevToolsRegistry>();
-                            let app = root();
-                            registry.update(app.clone().into());
-                            app
+                    illicit::Layer::new()
+                        .offer(DevToolsRegistry::new())
+                        .enter(|| {
+                            topo::call(|| {
+                                let registry = illicit::expect::<DevToolsRegistry>();
+                                let app = root();
+                                registry.update(app.clone().into());
+                                app
+                            })
                         })
-                    })
                 }),
             },
             windows: HashMap::new(),

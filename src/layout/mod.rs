@@ -9,7 +9,7 @@ use euclid::{Length, Point2D, SideOffsets2D, Size2D};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
-use moxie::embed::Runtime;
+use moxie::runtime::Runtime;
 use skribo::{FontCollection, FontFamily, FontRef};
 
 mod block;
@@ -88,26 +88,28 @@ impl LayoutEngine {
     /// Perform a layout step based on the new DOM and content size, and
     /// return a fresh layout tree.
     pub(crate) fn layout(&mut self, state: &mut DocumentState) -> EqualRc<LayoutTreeNode> {
-        illicit::child_env! (
-            EqualRc<FontCollection> => self.collection.clone()
-        )
-        .enter(move || {
-            self.runtime.run_once(move || {
-                let node = state.window.clone();
-                let values = *state.computed_values(node.id());
-                match values.display {
-                    DisplayType::Block(ref block) => block::layout_block(
-                        state,
-                        (&node).into(),
-                        &values,
-                        block,
-                        state.content_size,
-                    ),
-                    DisplayType::Inline(_) => {
-                        inline::layout_inline(state, (&node).into(), &values, state.content_size)
+        illicit::Layer::new()
+            .offer(self.collection.clone())
+            .enter(move || {
+                self.runtime.run_once(move || {
+                    let node = state.window.clone();
+                    let values = *state.computed_values(node.id());
+                    match values.display {
+                        DisplayType::Block(ref block) => block::layout_block(
+                            state,
+                            (&node).into(),
+                            &values,
+                            block,
+                            state.content_size,
+                        ),
+                        DisplayType::Inline(_) => inline::layout_inline(
+                            state,
+                            (&node).into(),
+                            &values,
+                            state.content_size,
+                        ),
                     }
-                }
+                })
             })
-        })
     }
 }

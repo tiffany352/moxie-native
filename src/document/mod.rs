@@ -5,7 +5,7 @@ use crate::dom::{Node, Window};
 use crate::layout::{LayoutEngine, LayoutTreeNode, LogicalSize};
 use crate::style::ComputedValues;
 use crate::util::equal_rc::EqualRc;
-use moxie::embed::Runtime;
+use moxie::runtime::Runtime;
 use std::collections::HashMap;
 
 struct NodeState {
@@ -173,10 +173,7 @@ impl Document {
         let window = state.window.clone();
         let size = state.content_size;
         self.style_runtime.run_once(move || {
-            illicit::child_env!(
-                LogicalSize => size
-            )
-            .enter(move || {
+            illicit::Layer::new().offer(size).enter(move || {
                 state.update_style((&window).into(), None);
             })
         });

@@ -29,7 +29,6 @@
 //! runtime.start();
 //! ```
 
-#![feature(track_caller)]
 #![deny(clippy::all)]
 // False positives
 #![allow(clippy::unnecessary_operation)]

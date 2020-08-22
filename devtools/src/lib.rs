@@ -1,12 +1,13 @@
-#![feature(track_caller)]
 #![recursion_limit = "512"]
 
+use moxie::{state, Key};
 use moxie_native::dom::{
     devtools::{register_devtools, DevTools},
     element::DynamicNode,
     node::{AnyNode, NodeRef},
 };
 use moxie_native::prelude::*;
+use topo;
 
 define_style! {
     static VIEW = {
@@ -141,11 +142,11 @@ impl DevTools for Tools {
 
 #[topo::nested]
 pub fn devtools() -> Node<View> {
-    let root = state(|| None);
+    let (current_root, root) = state(|| None);
 
-    register_devtools(Tools { root: root.clone() });
+    register_devtools(Tools { root });
 
-    if let Some(ref node) = *root {
+    if let Some(ref node) = *current_root {
         mox! {
             <view style={SENTINEL_STYLE}>
                 <node_view _=(node.into()) />
