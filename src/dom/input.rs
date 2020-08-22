@@ -13,8 +13,6 @@ pub enum State {
 
 impl InputEvent {
     pub fn get_position(&self) -> Option<(f32, f32)> {
-        match self {
-            _ => None,
-        }
+        None
     }
 }

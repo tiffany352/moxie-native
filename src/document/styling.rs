@@ -30,7 +30,7 @@ impl DocumentState {
         computed.text_color = parent.text_color;
         computed.text_size = parent.text_size;
 
-        illicit::Layer::new().offer(parent.clone()).enter(|| {
+        illicit::Layer::new().offer(*parent).enter(|| {
             let style = node.style();
             if let Some(Style(style)) = style {
                 (style.attributes.apply)(&mut computed);

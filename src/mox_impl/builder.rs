@@ -156,7 +156,7 @@ where
     pub fn on_event<Ev>(
         mut self,
         _event: PhantomData<Ev>,
-        func: impl FnMut(&Ev) -> () + 'static + Sync + Send,
+        func: impl FnMut(&Ev) + 'static + Sync + Send,
     ) -> Self
     where
         Ev: Event,
