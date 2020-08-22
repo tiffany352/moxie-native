@@ -54,7 +54,7 @@ impl<'a> TextState<'a> {
                 .glyphs()
                 .map(|glyph| Glyph {
                     index: glyph.glyph_id,
-                    offset: point2(glyph.offset.x, glyph.offset.y + baseline_offset),
+                    offset: point2(glyph.offset.x(), glyph.offset.y() + baseline_offset),
                 })
                 .collect();
             fragments.push(TextFragment { font, glyphs });
@@ -97,8 +97,8 @@ impl<'a> TextState<'a> {
                 let line_ascent = metrics.ascent / units_per_px;
 
                 for glyph in run.glyphs() {
-                    let new_x = glyph.offset.x
-                        + font.font.advance(glyph.glyph_id).unwrap().x / units_per_px;
+                    let new_x = glyph.offset.x()
+                        + font.font.advance(glyph.glyph_id).unwrap().x() / units_per_px;
 
                     if last_word_x + new_x > width {
                         let start = self.offset;

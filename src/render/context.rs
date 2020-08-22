@@ -11,11 +11,11 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use webrender::{
     api::{
-        units::Au, units::DeviceIntRect, units::DevicePixel, units::LayoutSideOffsets,
-        BorderDetails, BorderRadius, BorderSide, BorderStyle, ClipId, ClipMode, ColorF,
-        CommonItemProperties, ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch,
-        FontInstanceKey, FontKey, GlyphInstance, HitTestFlags, NormalBorder, PipelineId,
-        PrimitiveFlags, RenderApi, RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
+        units::DeviceIntRect, units::DevicePixel, units::LayoutSideOffsets, BorderDetails,
+        BorderRadius, BorderSide, BorderStyle, ClipId, ClipMode, ColorF, CommonItemProperties,
+        ComplexClipRegion, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
+        GlyphInstance, HitTestFlags, NormalBorder, PipelineId, PrimitiveFlags, RenderApi,
+        RenderNotifier, SpaceAndClipInfo, SpatialId, Transaction,
     },
     euclid::{point2, size2, Point2D, Rect, Scale, Size2D},
     Renderer, RendererOptions,
@@ -153,14 +153,7 @@ impl Context {
             return instance;
         }
         let instance = self.api.generate_font_instance_key();
-        txn.add_font_instance(
-            instance,
-            key,
-            Au::from_f64_px(size as f64),
-            None,
-            None,
-            vec![],
-        );
+        txn.add_font_instance(instance, key, size as f32, None, None, vec![]);
         self.font_instances.insert((key, size), instance);
 
         instance
@@ -208,7 +201,6 @@ impl Context {
                             &SpaceAndClipInfo::root_scroll(pipeline_id),
                             rect,
                             vec![region],
-                            None,
                         )
                     } else {
                         ClipId::root(pipeline_id)
@@ -217,10 +209,10 @@ impl Context {
                         clip_id,
                         clip_rect: rect,
                         spatial_id: SpatialId::root_scroll_node(pipeline_id),
-                        hit_info: Some((node.id(), 0)),
                         flags: PrimitiveFlags::empty(),
                     };
-                    builder.push_rect(&item_props, values.background_color.into());
+                    builder.push_rect(&item_props, rect, values.background_color.into());
+                    builder.push_hit_test(&item_props, (node.id(), 0));
                 }
 
                 if values.border.visible() {
@@ -321,7 +313,7 @@ impl Context {
 
         debug!("render()");
         let pipeline_id = PipelineId(0, 0);
-        let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
+        let mut builder = DisplayListBuilder::new(pipeline_id);
         let mut transaction = Transaction::new();
 
         let root_layout = self.document.get_layout();
