@@ -15,7 +15,7 @@ defining UI similar to React.
 - Relatively small footprint (4.8MB for a hello world app).
 - Declaratively specify UI instead of manually managing state.
 - Not based on immediate mode UI.
-- Targetted towards real world desktop applications.
+- Targeted towards real world desktop applications.
 - Styling system for specifying the appearance of elements.
 
 ## Future plans
